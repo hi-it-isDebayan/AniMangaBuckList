@@ -65,7 +65,6 @@ export default async function SettingsPage({
         <CardContent>
           <ConnectedAccounts
             linkedGoogle={linkedProviders.has("google")}
-            linkedMal={linkedProviders.has("mal")}
             hasPassword={hasPassword}
           />
         </CardContent>

@@ -10,15 +10,7 @@ import { Input, Label } from "@/components/ui/input";
 
 const emptyState: OAuthActionState = {};
 
-export function ConnectedAccounts({
-  linkedGoogle,
-  linkedMal,
-  hasPassword,
-}: {
-  linkedGoogle: boolean;
-  linkedMal: boolean;
-  hasPassword: boolean;
-}) {
+export function ConnectedAccounts({ linkedGoogle, hasPassword }: { linkedGoogle: boolean; hasPassword: boolean }) {
   return (
     <div className="space-y-4">
       <ProviderRow
@@ -26,12 +18,6 @@ export function ConnectedAccounts({
         detail={linkedGoogle ? "Signed in with Google" : "Use your Google account to sign in"}
         connected={linkedGoogle}
         href="/api/auth/google?mode=link"
-      />
-      <ProviderRow
-        name="MyAnimeList"
-        detail={linkedMal ? "Signed in with MyAnimeList" : "Use your MyAnimeList account to sign in"}
-        connected={linkedMal}
-        href="/api/auth/mal?mode=link"
       />
 
       <div className="border-t border-border pt-4">
