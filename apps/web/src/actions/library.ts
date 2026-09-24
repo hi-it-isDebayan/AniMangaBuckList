@@ -108,6 +108,7 @@ export async function addTitleAction(input: {
           volumeCount: item.volumeCount,
           coverUrl: item.coverUrl,
           score: item.score,
+          genres: item.genres,
           metadataRefreshedAt: now(),
         })
         .returning({ id: titles.id });

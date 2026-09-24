@@ -5,6 +5,7 @@ import Link from "next/link";
 import { loginAction, type AuthState } from "@/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
+import { OAuthButtons } from "@/components/oauth-buttons";
 
 const initialState: AuthState = {};
 
@@ -13,6 +14,7 @@ export function LoginForm() {
 
   return (
     <form action={formAction} className="space-y-4">
+      <OAuthButtons />
       {state?.error && (
         <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {state.error}

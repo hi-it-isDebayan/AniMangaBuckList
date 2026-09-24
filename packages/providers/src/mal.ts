@@ -9,9 +9,9 @@ import type { MetadataProvider, SearchOptions } from "./types";
 const BASE = "https://api.myanimelist.net/v2";
 
 const ANIME_FIELDS =
-  "id,title,main_picture,alternative_titles,media_type,synopsis,status,start_date,end_date,num_episodes,start_season,mean_score,related_anime,related_manga";
+  "id,title,main_picture,alternative_titles,media_type,synopsis,status,start_date,end_date,num_episodes,start_season,mean_score,genres,related_anime,related_manga";
 const MANGA_FIELDS =
-  "id,title,main_picture,alternative_titles,media_type,synopsis,status,start_date,end_date,num_chapters,num_volumes,mean_score,related_anime,related_manga";
+  "id,title,main_picture,alternative_titles,media_type,synopsis,status,start_date,end_date,num_chapters,num_volumes,mean_score,genres,related_anime,related_manga";
 
 function mapStatus(status?: string | null): MediaStatus | null {
   switch (status) {
@@ -78,6 +78,7 @@ interface MalNode {
   num_chapters?: number | null;
   num_volumes?: number | null;
   mean_score?: number | null;
+  genres?: { id: number; name: string }[] | null;
   start_season?: { season?: string | null; year?: number | null } | null;
   related_anime?: MalRelated[];
   related_manga?: MalRelated[];
@@ -144,6 +145,7 @@ function toItem(node: MalNode, isAnime: boolean): SearchResultItem {
     year: node.start_season?.year ?? null,
     coverUrl: node.main_picture?.large ?? node.main_picture?.medium ?? null,
     score: node.mean_score ?? null,
+    genres: (node.genres ?? []).map((g) => g.name),
   };
 }
 

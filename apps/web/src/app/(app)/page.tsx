@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { and, desc, eq, inArray } from "drizzle-orm";
-import { Bell, BookOpen, Flame, LibraryBig } from "lucide-react";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { Bell, BookOpen, Flame, LibraryBig, Tags } from "lucide-react";
 import { titles, userLibrary, userProgress, releaseEvents, notifications as notificationsTable } from "@ambl/database";
 import type { LibraryStatus } from "@ambl/types";
 import { requireUser } from "@/lib/auth";
@@ -57,7 +57,7 @@ export default async function DashboardPage() {
     .orderBy(desc(userLibrary.updatedAt))
     .limit(6);
 
-  const [releases, unread, activeCount] = await Promise.all([
+  const [releases, unread, activeCount, genreRows] = await Promise.all([
     db
       .select({
         id: releaseEvents.id,
@@ -91,7 +91,14 @@ export default async function DashboardPage() {
       .select({ id: userLibrary.id })
       .from(userLibrary)
       .where(eq(userLibrary.userId, user.id)),
+    db.execute(
+      sql`select g as genre, count(*)::int as count from user_library ul join ${titles} t on t.id = ul.title_id, unnest(t.genres) as g where ul.user_id = ${user.id} and g <> '' group by g order by count desc, g asc limit 8`,
+    ),
   ]);
+
+  const genres = (
+    Array.isArray(genreRows) ? genreRows : (genreRows as { rows?: unknown[] }).rows ?? []
+  ) as { genre: string; count: number }[];
 
   const hour = new Date().getHours();
 
@@ -225,6 +232,30 @@ export default async function DashboardPage() {
           )}
         </section>
       )}
+
+      <section className="space-y-3">
+        <h2 className="flex items-center gap-2 font-semibold">
+          <Tags className="h-4 w-4 text-primary" /> Your genres
+        </h2>
+        {genres.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Add titles to see genre filters here.
+          </p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {genres.map((g) => (
+              <Link
+                key={g.genre}
+                href={`/library?genre=${encodeURIComponent(g.genre)}`}
+                className="inline-flex items-center gap-1.5 rounded-full border border-input px-3 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+              >
+                {g.genre}
+                <span className="opacity-60">{g.count}</span>
+              </Link>
+            ))}
+          </div>
+        )}
+      </section>
 
       <section className="space-y-3">
         <h2 className="flex items-center gap-2 font-semibold">

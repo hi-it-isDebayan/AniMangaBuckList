@@ -67,6 +67,7 @@ export interface SearchResultItem {
   year: number | null;
   coverUrl: string | null;
   score: number | null;
+  genres: string[];
 }
 
 export interface MediaRelation {

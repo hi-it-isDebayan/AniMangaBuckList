@@ -88,7 +88,9 @@ export const users = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     email: varchar("email", { length: 320 }).notNull(),
     displayName: varchar("display_name", { length: 120 }).notNull().default(""),
-    passwordHash: text("password_hash").notNull(),
+    passwordHash: text("password_hash"),
+    oauthProvider: varchar("oauth_provider", { length: 20 }),
+    oauthId: varchar("oauth_id", { length: 255 }),
     preferences: jsonb("preferences")
       .$type<UserPreferences>()
       .notNull()
@@ -100,7 +102,10 @@ export const users = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (t) => [uniqueIndex("users_email_uq").on(t.email)],
+  (t) => [
+    uniqueIndex("users_email_uq").on(t.email),
+    index("users_oauth_idx").on(t.oauthProvider, t.oauthId),
+  ],
 );
 
 export const sessions = pgTable(
@@ -144,6 +149,7 @@ export const titles = pgTable(
     volumeCount: integer("volume_count"),
     coverUrl: text("cover_url"),
     score: doublePrecision("score"),
+    genres: text("genres").array().notNull().default(sql`'{}'::text[]`),
     metadataRefreshedAt: timestamp("metadata_refreshed_at", {
       withTimezone: true,
     }),
@@ -157,6 +163,7 @@ export const titles = pgTable(
   (t) => [
     uniqueIndex("titles_source_mal_uq").on(t.source, t.malId),
     index("titles_media_type_idx").on(t.mediaType),
+    index("titles_genres_gin").using("gin", t.genres),
     index("titles_search_primary_gin").using(
       "gin",
       sql`lower(${t.primaryTitle}) gin_trgm_ops`,

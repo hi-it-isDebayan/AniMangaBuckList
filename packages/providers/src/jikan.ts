@@ -92,6 +92,7 @@ interface JikanAnimeEntry {
   score: number | null;
   season: string | null;
   year: number | null;
+  genres?: { name: string }[];
   aired?: { from: string | null; to: string | null } | null;
   images?: {
     jpg?: { large_image_url?: string | null; image_url?: string | null };
@@ -110,6 +111,7 @@ interface JikanMangaEntry {
   volumes: number | null;
   status: string | null;
   score: number | null;
+  genres?: { name: string }[];
   published?: { from: string | null; to: string | null } | null;
   images?: {
     jpg?: { large_image_url?: string | null; image_url?: string | null };
@@ -234,6 +236,7 @@ function toItem(e: JikanAnimeEntry | JikanMangaEntry): SearchResultItem | null {
     year: "year" in e ? e.year ?? null : null,
     coverUrl: e.images?.jpg?.large_image_url ?? e.images?.jpg?.image_url ?? null,
     score: e.score ?? null,
+    genres: (e.genres ?? []).map((g) => g.name),
   };
 }
 

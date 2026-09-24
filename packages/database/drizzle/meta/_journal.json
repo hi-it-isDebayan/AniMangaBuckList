@@ -8,6 +8,20 @@
       "when": 1790229925517,
       "tag": "0000_lonely_maelstrom",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790237336577,
+      "tag": "0001_fearless_sleepwalker",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790238168629,
+      "tag": "0002_empty_polaris",
+      "breakpoints": true
     }
   ]
 }

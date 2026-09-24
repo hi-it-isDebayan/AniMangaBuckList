@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { and, count, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
+import { and, arrayContains, count, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { BookMarked } from "lucide-react";
 import type { LibraryStatus, MediaType } from "@ambl/types";
 import {
@@ -52,6 +52,7 @@ export default async function LibraryPage({
   const rawSort = String(sp.sort ?? "updated");
   const sort = VALID_SORT.has(rawSort) ? rawSort : "updated";
   const q = String(sp.q ?? "").trim().slice(0, 120);
+  const genre = String(sp.genre ?? "").trim().slice(0, 40);
   const rawPage = Number(sp.page ?? 1);
   const page = Number.isFinite(rawPage) && rawPage >= 1 ? Math.floor(rawPage) : 1;
 
@@ -79,10 +80,13 @@ export default async function LibraryPage({
       sql`exists (select 1 from ${userTags} ut join ${tagsTable} tg on tg.id = ut.tag_id where ut.user_id = ${user.id} and ut.title_id = ${titles.id} and tg.name ilike ${`%${tag}%`})`,
     );
   }
+  if (genre) {
+    conditions.push(arrayContains(titles.genres, [genre]));
+  }
 
   const where = and(...conditions);
 
-  const [statusCounts, [{ total }]] = await Promise.all([
+  const [statusCounts, [{ total }], genreRows] = await Promise.all([
     db
       .select({ status: userLibrary.status, count: count() })
       .from(userLibrary)
@@ -93,7 +97,15 @@ export default async function LibraryPage({
       .from(userLibrary)
       .innerJoin(titles, eq(userLibrary.titleId, titles.id))
       .where(where!),
+    db.execute(
+      sql`select g as genre, count(*)::int as count from user_library ul join ${titles} t on t.id = ul.title_id, unnest(t.genres) as g where ul.user_id = ${user.id} and g <> '' group by g order by count desc, g asc`,
+    ),
   ]);
+
+  const genreCounts = (Array.isArray(genreRows) ? genreRows : (genreRows as { rows?: unknown[] }).rows ?? []) as {
+    genre: string;
+    count: number;
+  }[];
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
@@ -150,6 +162,7 @@ export default async function LibraryPage({
     if (status !== "ALL") params.set("status", status);
     if (mediaType) params.set("type", mediaType);
     if (tag) params.set("tag", tag);
+    if (genre) params.set("genre", genre);
     if (sort !== "updated") params.set("sort", sort);
     if (q) params.set("q", q);
     params.set("page", String(p));
@@ -170,6 +183,21 @@ export default async function LibraryPage({
         sort={sort}
         query={q}
       />
+
+      {genreCounts.length > 0 && (
+        <div className="-mx-1 flex items-center gap-1.5 overflow-x-auto px-1 pb-1">
+          <GenreChip href="/library" active={!genre} label="All" />
+          {genreCounts.map((g) => (
+            <GenreChip
+              key={g.genre}
+              href={`/library?genre=${encodeURIComponent(g.genre)}`}
+              active={genre === g.genre}
+              label={g.genre}
+              count={g.count}
+            />
+          ))}
+        </div>
+      )}
 
       <div className="flex w-full items-center gap-1 overflow-x-auto rounded-lg border bg-muted/40 p-1">
         {tabs.map((tab) => (
@@ -215,5 +243,33 @@ export default async function LibraryPage({
 
       <Pagination page={currentPage} totalPages={totalPages} buildHref={buildHref} />
     </div>
+  );
+}
+
+function GenreChip({
+  href,
+  active,
+  label,
+  count,
+}: {
+  href: string;
+  active: boolean;
+  label: string;
+  count?: number;
+}) {
+  return (
+    <Link
+      href={href}
+      scroll={false}
+      className={cn(
+        "flex shrink-0 items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+        active
+          ? "border-transparent bg-primary text-primary-foreground"
+          : "border-input text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+      )}
+    >
+      {label}
+      {count != null && <span className={cn(active ? "opacity-80" : "opacity-60")}>{count}</span>}
+    </Link>
   );
 }

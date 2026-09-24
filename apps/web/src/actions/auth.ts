@@ -68,7 +68,7 @@ export async function loginAction(
     .from(users)
     .where(eq(users.email, email.data))
     .limit(1);
-  if (!row[0]) {
+  if (!row[0] || !row[0].passwordHash) {
     return { error: "Invalid email or password." };
   }
   const ok = await verifyPassword(password.data, row[0].passwordHash);
