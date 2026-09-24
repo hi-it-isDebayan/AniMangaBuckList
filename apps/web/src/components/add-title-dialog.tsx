@@ -155,6 +155,9 @@ export function AddTitleDialog() {
                     {item.chapterCount != null && (
                       <Badge variant="secondary">{item.chapterCount} ch</Badge>
                     )}
+                    {item.volumeCount != null && (
+                      <Badge variant="secondary">{item.volumeCount} vol</Badge>
+                    )}
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-1.5">
