@@ -25,5 +25,8 @@
   "dependencies": {
     "@neon/config": "^1.7.3",
     "@neon/env": "^1.4.4"
+  },
+  "optionalDependencies": {
+    "lightningcss-linux-x64-gnu": "1.32.0"
   }
 }
