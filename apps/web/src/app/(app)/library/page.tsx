@@ -18,7 +18,7 @@ import { LibraryToolbar } from "@/components/library-toolbar";
 import { EmptyState } from "@/components/empty-state";
 import { Pagination } from "@/components/pagination";
 import { AddTitleDialog } from "@/components/add-title-dialog";
-import { LIBRARY_STATUSES, libraryStatusLabel } from "@/lib/format";
+import { LIBRARY_STATUSES, GENRE_CHIP_COLORS, libraryStatusLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Library" };
@@ -126,6 +126,7 @@ export default async function LibraryPage({
       status: userLibrary.status,
       isFavorite: userLibrary.isFavorite,
       year: titles.year,
+      coverUrl: titles.coverUrl,
       openedChapter: userProgress.lastOpenedChapter,
       completedChapter: userProgress.lastCompletedChapter,
       openedEpisode: userProgress.lastOpenedEpisode,
@@ -187,13 +188,14 @@ export default async function LibraryPage({
       {genreCounts.length > 0 && (
         <div className="-mx-1 flex items-center gap-1.5 overflow-x-auto px-1 pb-1">
           <GenreChip href="/library" active={!genre} label="All" />
-          {genreCounts.map((g) => (
+          {genreCounts.map((g, i) => (
             <GenreChip
               key={g.genre}
               href={`/library?genre=${encodeURIComponent(g.genre)}`}
               active={genre === g.genre}
               label={g.genre}
               count={g.count}
+              color={GENRE_CHIP_COLORS[i % GENRE_CHIP_COLORS.length]}
             />
           ))}
         </div>
@@ -251,11 +253,13 @@ function GenreChip({
   active,
   label,
   count,
+  color,
 }: {
   href: string;
   active: boolean;
   label: string;
   count?: number;
+  color?: string;
 }) {
   return (
     <Link
@@ -265,7 +269,7 @@ function GenreChip({
         "flex shrink-0 items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
         active
           ? "border-transparent bg-primary text-primary-foreground"
-          : "border-input text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+          : color ?? "border-input text-muted-foreground hover:bg-accent hover:text-accent-foreground",
       )}
     >
       {label}

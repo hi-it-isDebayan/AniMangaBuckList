@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
-import { Bell, BookOpen, Flame, LibraryBig, Tags } from "lucide-react";
+import { Bell, BookOpen, BookOpenText, Flame, LibraryBig, Tags } from "lucide-react";
 import { titles, userLibrary, userProgress, releaseEvents, notifications as notificationsTable } from "@ambl/database";
 import type { LibraryStatus } from "@ambl/types";
 import { requireUser } from "@/lib/auth";
@@ -8,13 +8,15 @@ import { getDb } from "@/lib/db";
 import { AddTitleDialog } from "@/components/add-title-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge, MediaTypeBadge } from "@/components/status-badge";
 import {
+  GENRE_CHIP_COLORS,
   greetingForHour,
-  mediaTypeLabel,
   progressUnitForType,
   relativeTime,
+  statusAccentClass,
 } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +35,8 @@ export default async function DashboardPage() {
       titleId: titles.id,
       title: titles.primaryTitle,
       mediaType: titles.mediaType,
+      status: userLibrary.status,
+      coverUrl: titles.coverUrl,
       lastSourceUrl: userProgress.lastSourceUrl,
       openedChapter: userProgress.lastOpenedChapter,
       completedChapter: userProgress.lastCompletedChapter,
@@ -120,9 +124,19 @@ export default async function DashboardPage() {
       </div>
 
       <section className="space-y-3">
-        <h2 className="flex items-center gap-2 font-semibold">
-          <Flame className="h-4 w-4 text-primary" /> Continue
-        </h2>
+        <div className="flex items-center justify-between">
+          <h2 className="flex items-center gap-2 font-semibold">
+            <Flame className="h-4 w-4 text-primary" /> Continue
+          </h2>
+          {continueRows.length > 0 && (
+            <Link
+              href="/library"
+              className="text-sm text-muted-foreground transition-colors hover:text-primary"
+            >
+              View all →
+            </Link>
+          )}
+        </div>
         {continueRows.length === 0 ? (
           <EmptyState
             icon={<BookOpen className="h-8 w-8" />}
@@ -140,37 +154,66 @@ export default async function DashboardPage() {
               const current = Math.max(opened ?? 0, completed ?? 0);
               return (
                 <li key={row.titleId}>
-                  <Card className="h-full">
-                    <CardContent className="flex h-full flex-col gap-2 p-4">
-                      <Badge variant="outline" className="w-fit">
-                        {mediaTypeLabel(row.mediaType)}
-                      </Badge>
+                  <Card className="group relative h-full overflow-hidden">
+                    <span
+                      className={cn(
+                        "absolute inset-x-0 top-0 h-1",
+                        statusAccentClass(row.status),
+                      )}
+                    />
+                    <CardContent className="flex h-full gap-3 p-4 pt-5">
                       <Link
                         href={`/title/${row.titleId}`}
-                        className="line-clamp-1 font-medium hover:text-primary"
+                        className="relative h-36 w-24 shrink-0 overflow-hidden rounded-md bg-muted"
                       >
-                        {row.title}
+                        {row.coverUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={row.coverUrl}
+                            alt={row.title}
+                            loading="lazy"
+                            referrerPolicy="no-referrer"
+                            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                          />
+                        ) : (
+                          <span className="flex h-full w-full items-center justify-center text-muted-foreground">
+                            <BookOpenText className="h-7 w-7" />
+                          </span>
+                        )}
                       </Link>
-                      <p className="text-sm text-muted-foreground">
-                        {unit === "EPISODE" ? "Episode" : "Chapter"} {current}
-                      </p>
-                      <div className="mt-auto flex items-center gap-2 pt-2">
+                      <div className="flex min-w-0 flex-1 flex-col">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <StatusBadge status={row.status} />
+                          <MediaTypeBadge type={row.mediaType} />
+                        </div>
                         <Link
                           href={`/title/${row.titleId}`}
-                          className="inline-flex h-9 flex-1 items-center justify-center rounded-md bg-primary text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90"
+                          className="mt-1.5 line-clamp-2 font-medium leading-snug hover:text-primary"
                         >
-                          Continue
+                          {row.title}
                         </Link>
-                        {row.lastSourceUrl && (
-                          <a
-                            href={row.lastSourceUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex h-9 items-center justify-center rounded-md border border-input px-3 text-sm hover:bg-accent"
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {unit === "EPISODE" ? "Episode" : "Chapter"} {current}
+                        </p>
+                        <div className="mt-auto flex items-center gap-2 pt-3">
+                          <Link
+                            href={`/title/${row.titleId}`}
+                            className="inline-flex h-9 flex-1 items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90"
                           >
-                            Open source
-                          </a>
-                        )}
+                            Continue
+                          </Link>
+                          {row.lastSourceUrl && (
+                            <a
+                              href={row.lastSourceUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              title="Open source"
+                              className="inline-flex h-9 items-center justify-center rounded-md border border-input px-3 text-sm hover:bg-accent"
+                            >
+                              Source
+                            </a>
+                          )}
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -243,11 +286,14 @@ export default async function DashboardPage() {
           </p>
         ) : (
           <div className="flex flex-wrap gap-2">
-            {genres.map((g) => (
+            {genres.map((g, i) => (
               <Link
                 key={g.genre}
                 href={`/library?genre=${encodeURIComponent(g.genre)}`}
-                className="inline-flex items-center gap-1.5 rounded-full border border-input px-3 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors hover:brightness-110",
+                  GENRE_CHIP_COLORS[i % GENRE_CHIP_COLORS.length],
+                )}
               >
                 {g.genre}
                 <span className="opacity-60">{g.count}</span>

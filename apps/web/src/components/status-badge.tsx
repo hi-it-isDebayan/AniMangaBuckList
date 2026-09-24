@@ -1,6 +1,11 @@
 import type { LibraryStatus, MediaType } from "@ambl/types";
 import { Badge } from "@/components/ui/badge";
-import { libraryStatusBadge, libraryStatusLabel, mediaTypeLabel } from "@/lib/format";
+import {
+  libraryStatusBadge,
+  libraryStatusLabel,
+  mediaTypeBadgeClass,
+  mediaTypeLabel,
+} from "@/lib/format";
 
 export function StatusBadge({ status }: { status: LibraryStatus }) {
   return (
@@ -11,5 +16,5 @@ export function StatusBadge({ status }: { status: LibraryStatus }) {
 }
 
 export function MediaTypeBadge({ type }: { type: MediaType }) {
-  return <Badge variant="outline">{mediaTypeLabel(type)}</Badge>;
+  return <Badge className={mediaTypeBadgeClass(type)}>{mediaTypeLabel(type)}</Badge>;
 }

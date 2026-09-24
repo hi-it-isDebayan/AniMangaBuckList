@@ -27,6 +27,48 @@ export function mediaTypeLabel(type: MediaType): string {
   }
 }
 
+export function mediaTypeBadgeClass(type: MediaType): string {
+  switch (type) {
+    case "ANIME":
+      return "border-violet-300 bg-violet-500/10 text-violet-700 dark:text-violet-300";
+    case "MANGA":
+      return "border-sky-300 bg-sky-500/10 text-sky-700 dark:text-sky-300";
+    case "MANHWA":
+      return "border-emerald-300 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
+    case "MANHUA":
+      return "border-rose-300 bg-rose-500/10 text-rose-700 dark:text-rose-300";
+    case "LIGHT_NOVEL":
+      return "border-amber-300 bg-amber-500/10 text-amber-700 dark:text-amber-300";
+    case "WEB_NOVEL":
+      return "border-teal-300 bg-teal-500/10 text-teal-700 dark:text-teal-300";
+  }
+}
+
+export function statusAccentClass(status: LibraryStatus): string {
+  switch (status) {
+    case "COMPLETED":
+      return "bg-emerald-500";
+    case "DROPPED":
+      return "bg-red-500";
+    case "ON_HOLD":
+      return "bg-amber-500";
+    case "PLAN_TO_WATCH":
+    case "PLAN_TO_READ":
+      return "bg-sky-500";
+    default:
+      return "bg-primary";
+  }
+}
+
+export const GENRE_CHIP_COLORS = [
+  "border-sky-300 bg-sky-500/10 text-sky-700 dark:text-sky-300",
+  "border-emerald-300 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+  "border-amber-300 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+  "border-rose-300 bg-rose-500/10 text-rose-700 dark:text-rose-300",
+  "border-violet-300 bg-violet-500/10 text-violet-700 dark:text-violet-300",
+  "border-teal-300 bg-teal-500/10 text-teal-700 dark:text-teal-300",
+];
+
 export function progressUnitForType(type: MediaType): ProgressUnit {
   return type === "ANIME" ? "EPISODE" : "CHAPTER";
 }
