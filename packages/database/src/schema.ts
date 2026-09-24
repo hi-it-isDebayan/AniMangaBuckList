@@ -245,6 +245,31 @@ export const titleAliases = pgTable(
   ],
 );
 
+export const extensionTitleMatches = pgTable(
+  "extension_title_matches",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    normalizedTitle: text("normalized_title").notNull(),
+    titleId: uuid("title_id")
+      .notNull()
+      .references(() => titles.id, { onDelete: "cascade" }),
+    host: varchar("host", { length: 255 }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("extension_title_matches_user_title_uq").on(
+      t.userId,
+      t.normalizedTitle,
+    ),
+    index("extension_title_matches_user_idx").on(t.userId),
+  ],
+);
+
 export const titleRelations = pgTable(
   "title_relations",
   {
@@ -546,6 +571,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   ratings: many(ratings),
   tags: many(tags),
   notifications: many(notifications),
+  extensionTitleMatches: many(extensionTitleMatches),
 }));
 
 export const userOauthAccountsRelations = relations(userOauthAccounts, ({ one }) => ({
@@ -554,6 +580,7 @@ export const userOauthAccountsRelations = relations(userOauthAccounts, ({ one })
 
 export const titlesRelations = relations(titles, ({ many }) => ({
   aliases: many(titleAliases),
+  extensionTitleMatches: many(extensionTitleMatches),
   relationsFrom: many(titleRelations, { relationName: "fromTitle" }),
   relationsTo: many(titleRelations, { relationName: "toTitle" }),
   chapters: many(chapters),

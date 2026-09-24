@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { eq, sql, type SQL } from "drizzle-orm";
-import { progressHistory, titles, userProgress } from "@ambl/database";
+import { eq } from "drizzle-orm";
+import { titles } from "@ambl/database";
 import { getDb } from "@/lib/db";
 import {
   extensionCorsHeaders,
@@ -9,6 +9,8 @@ import {
   unauthorized,
   verifyApiKey,
 } from "@/lib/api-keys";
+import { resolveTitle } from "@/lib/title-resolver";
+import { recordProgress } from "@/lib/progress";
 
 export const dynamic = "force-dynamic";
 
@@ -16,17 +18,20 @@ const progressSchema = z
   .object({
     titleId: z.string().uuid().optional(),
     malId: z.number().int().optional(),
+    title: z.string().max(500).optional(),
+    titleCandidates: z.array(z.string().max(500)).max(10).optional(),
     unit: z.enum(["EPISODE", "CHAPTER"]),
     value: z.number().int().min(1),
     kind: z.enum(["OPENED", "COMPLETED"]).default("OPENED"),
     sourceUrl: z.string().max(2000).optional(),
     source: z.string().max(60).optional(),
+    host: z.string().max(255).optional(),
   })
   .superRefine((v, ctx) => {
-    if (!v.titleId && !v.malId) {
+    if (!v.titleId && !v.malId && !v.title) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "titleId or malId is required.",
+        message: "titleId, malId or title is required.",
       });
     }
   });
@@ -62,85 +67,97 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { titleId: rawTitleId, malId, unit, value, kind } = parsed.data;
-  const source = parsed.data.source ?? null;
-  const sourceUrl = parsed.data.sourceUrl ?? null;
+  const {
+    titleId: rawTitleId,
+    malId,
+    title,
+    titleCandidates,
+    unit,
+    value,
+    kind,
+    source,
+    sourceUrl,
+    host,
+  } = parsed.data;
 
   let titleId = rawTitleId;
+  let resolved = false;
+
   if (!titleId) {
-    const row = await db
-      .select({ id: titles.id })
-      .from(titles)
-      .where(eq(titles.malId, malId!))
-      .limit(1);
-    if (!row[0]) {
+    if (malId) {
+      const row = await db
+        .select({ id: titles.id })
+        .from(titles)
+        .where(eq(titles.malId, malId))
+        .limit(1);
+      if (row[0]) {
+        titleId = row[0].id;
+        resolved = true;
+      } else {
+        return NextResponse.json(
+          { error: "Title not found" },
+          { status: 404, headers: extensionCorsHeaders() },
+        );
+      }
+    } else if (title) {
+      const out = await resolveTitle(db, {
+        userId: auth.userId,
+        title,
+        titleCandidates,
+        unit,
+        value,
+        host,
+      });
+      if (out.status === "resolved") {
+        titleId = out.titleId!;
+        resolved = true;
+      } else {
+        return NextResponse.json(
+          {
+            needsConfirmation: true,
+            detected: {
+              title,
+              titleCandidates,
+              normalized: out.normalized,
+              unit,
+              value,
+              kind,
+              source: source ?? null,
+              sourceUrl: sourceUrl ?? null,
+              host: host ?? null,
+            },
+            candidates: out.candidates,
+          },
+          { status: 409, headers: extensionCorsHeaders() },
+        );
+      }
+    } else {
       return NextResponse.json(
-        { error: "Title not found" },
-        { status: 404, headers: extensionCorsHeaders() },
+        { error: "titleId, malId or title is required." },
+        { status: 400, headers: extensionCorsHeaders() },
       );
     }
-    titleId = row[0].id;
   }
 
-  let insertPatch: Partial<typeof userProgress.$inferInsert> = {};
-  let updatePatch: Record<string, SQL<unknown>> = {};
-  if (unit === "EPISODE") {
-    if (kind === "OPENED") {
-      insertPatch = { lastOpenedEpisode: value };
-      updatePatch = {
-        lastOpenedEpisode: sql`GREATEST(${userProgress.lastOpenedEpisode}, ${value})`,
-      };
-    } else {
-      insertPatch = { lastCompletedEpisode: value };
-      updatePatch = {
-        lastCompletedEpisode: sql`GREATEST(${userProgress.lastCompletedEpisode}, ${value})`,
-      };
-    }
-  } else if (kind === "OPENED") {
-    insertPatch = { lastOpenedChapter: value };
-    updatePatch = {
-      lastOpenedChapter: sql`GREATEST(${userProgress.lastOpenedChapter}, ${value})`,
-    };
-  } else {
-    insertPatch = { lastCompletedChapter: value };
-    updatePatch = {
-      lastCompletedChapter: sql`GREATEST(${userProgress.lastCompletedChapter}, ${value})`,
-    };
+  if (!titleId) {
+    return NextResponse.json(
+      { error: "Unable to resolve title." },
+      { status: 409, headers: extensionCorsHeaders() },
+    );
   }
 
-  await db
-    .insert(userProgress)
-    .values({
-      userId: auth.userId,
-      titleId,
-      ...insertPatch,
-      updatedBy: "EXTENSION",
-      ...(source ? { lastSource: source } : {}),
-      ...(sourceUrl ? { lastSourceUrl: sourceUrl } : {}),
-    })
-    .onConflictDoUpdate({
-      target: [userProgress.userId, userProgress.titleId],
-      set: {
-        ...updatePatch,
-        updatedBy: "EXTENSION",
-        updatedAt: new Date(),
-        ...(source ? { lastSource: source } : {}),
-        ...(sourceUrl ? { lastSourceUrl: sourceUrl } : {}),
-      },
-    });
-
-  await db.insert(progressHistory).values({
+  await recordProgress(db, {
     userId: auth.userId,
     titleId,
     unit,
-    kind,
     value,
+    kind,
     source,
     sourceUrl,
   });
 
   return NextResponse.json(
-    { ok: true },
+    { ok: true, resolved, titleId },
     { headers: extensionCorsHeaders() },
   );
 }
