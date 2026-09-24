@@ -157,6 +157,28 @@ export const sessions = pgTable(
   ],
 );
 
+export const publicApiKeys = pgTable(
+  "public_api_keys",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 120 }).notNull().default("Default"),
+    keyHash: char64("key_hash").notNull(),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    lastFour: varchar("last_four", { length: 16 }).notNull(),
+  },
+  (t) => [
+    uniqueIndex("public_api_keys_user_name_uq").on(t.userId, t.name),
+    index("public_api_keys_user_id_idx").on(t.userId),
+    index("public_api_keys_key_hash_idx").on(t.keyHash),
+  ],
+);
+
 export const titles = pgTable(
   "titles",
   {

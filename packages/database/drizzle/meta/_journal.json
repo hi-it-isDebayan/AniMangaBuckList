@@ -22,6 +22,20 @@
       "when": 1790238168629,
       "tag": "0002_empty_polaris",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790257702809,
+      "tag": "0003_rainy_susan_delgado",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790257783267,
+      "tag": "0004_faulty_sleepwalker",
+      "breakpoints": true
     }
   ]
 }
