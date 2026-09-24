@@ -44,12 +44,13 @@ export default async function LibraryPage({
   const user = await requireUser();
   const sp = await searchParams;
 
-  const status = VALID_STATUS.has(String(sp.status ?? "ALL"))
-    ? String(sp.status)
-    : "ALL";
-  const mediaType = VALID_TYPE.has(String(sp.type ?? "")) ? String(sp.type) : "";
+  const rawStatus = String(sp.status ?? "ALL");
+  const status = VALID_STATUS.has(rawStatus) ? rawStatus : "ALL";
+  const rawType = String(sp.type ?? "");
+  const mediaType = VALID_TYPE.has(rawType) ? rawType : "";
   const tag = String(sp.tag ?? "").trim().slice(0, 40);
-  const sort = VALID_SORT.has(String(sp.sort ?? "updated")) ? String(sp.sort) : "updated";
+  const rawSort = String(sp.sort ?? "updated");
+  const sort = VALID_SORT.has(rawSort) ? rawSort : "updated";
   const q = String(sp.q ?? "").trim().slice(0, 120);
   const rawPage = Number(sp.page ?? 1);
   const page = Number.isFinite(rawPage) && rawPage >= 1 ? Math.floor(rawPage) : 1;
