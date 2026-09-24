@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { and, eq, sql, type SQL } from "drizzle-orm";
+import { eq, sql, type SQL } from "drizzle-orm";
 import { progressHistory, titles, userProgress } from "@ambl/database";
 import { getDb } from "@/lib/db";
 import {
@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
     const row = await db
       .select({ id: titles.id })
       .from(titles)
-      .where(and(eq(titles.source, "JIKAN"), eq(titles.malId, malId!)))
+      .where(eq(titles.malId, malId!))
       .limit(1);
     if (!row[0]) {
       return NextResponse.json(
