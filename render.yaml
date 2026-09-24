@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: animangabucklist
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: NODE_ENV
+        value: production
+      - key: APP_URL
+        sync: false
+      - key: METADATA_PROVIDER
+        value: mal
+      - key: MAL_CLIENT_ID
+        sync: false
+      - key: MAL_CLIENT_SECRET
+        sync: false

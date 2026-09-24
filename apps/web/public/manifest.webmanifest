@@ -1,0 +1,16 @@
+{
+  "name": "AniMangaBuckList",
+  "short_name": "AniMangaBuckList",
+  "description": "A lightweight, privacy-conscious tracker for anime, manga, manhwa, manhua and novels.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#7c3aed",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

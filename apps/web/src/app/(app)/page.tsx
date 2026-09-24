@@ -1,0 +1,242 @@
+import Link from "next/link";
+import { and, desc, eq, inArray } from "drizzle-orm";
+import { Bell, BookOpen, Flame, LibraryBig } from "lucide-react";
+import { titles, userLibrary, userProgress, releaseEvents, notifications as notificationsTable } from "@ambl/database";
+import type { LibraryStatus } from "@ambl/types";
+import { requireUser } from "@/lib/auth";
+import { getDb } from "@/lib/db";
+import { AddTitleDialog } from "@/components/add-title-dialog";
+import { EmptyState } from "@/components/empty-state";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import {
+  greetingForHour,
+  mediaTypeLabel,
+  progressUnitForType,
+  relativeTime,
+} from "@/lib/format";
+
+export const dynamic = "force-dynamic";
+
+const CONTINUE_STATUSES: LibraryStatus[] = [
+  "CURRENTLY_WATCHING",
+  "CURRENTLY_READING",
+  "ON_HOLD",
+];
+
+export default async function DashboardPage() {
+  const user = await requireUser();
+  const db = getDb();
+
+  const continueRows = await db
+    .select({
+      titleId: titles.id,
+      title: titles.primaryTitle,
+      mediaType: titles.mediaType,
+      lastSourceUrl: userProgress.lastSourceUrl,
+      openedChapter: userProgress.lastOpenedChapter,
+      completedChapter: userProgress.lastCompletedChapter,
+      openedEpisode: userProgress.lastOpenedEpisode,
+      completedEpisode: userProgress.lastCompletedEpisode,
+    })
+    .from(userLibrary)
+    .innerJoin(titles, eq(userLibrary.titleId, titles.id))
+    .leftJoin(
+      userProgress,
+      and(
+        eq(userProgress.userId, user.id),
+        eq(userProgress.titleId, titles.id),
+      ),
+    )
+    .where(
+      and(
+        eq(userLibrary.userId, user.id),
+        inArray(userLibrary.status, CONTINUE_STATUSES),
+      ),
+    )
+    .orderBy(desc(userLibrary.updatedAt))
+    .limit(6);
+
+  const [releases, unread, activeCount] = await Promise.all([
+    db
+      .select({
+        id: releaseEvents.id,
+        releaseType: releaseEvents.releaseType,
+        number: releaseEvents.number,
+        detectedAt: releaseEvents.detectedAt,
+        titleId: titles.id,
+        title: titles.primaryTitle,
+      })
+      .from(releaseEvents)
+      .innerJoin(titles, eq(releaseEvents.titleId, titles.id))
+      .orderBy(desc(releaseEvents.detectedAt))
+      .limit(5),
+    db
+      .select({
+        id: notificationsTable.id,
+        message: notificationsTable.message,
+        createdAt: notificationsTable.createdAt,
+        titleId: notificationsTable.titleId,
+      })
+      .from(notificationsTable)
+      .where(
+        and(
+          eq(notificationsTable.userId, user.id),
+          eq(notificationsTable.read, false),
+        ),
+      )
+      .orderBy(desc(notificationsTable.createdAt))
+      .limit(5),
+    db
+      .select({ id: userLibrary.id })
+      .from(userLibrary)
+      .where(eq(userLibrary.userId, user.id)),
+  ]);
+
+  const hour = new Date().getHours();
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {greetingForHour(hour)}
+            {user.displayName ? `, ${user.displayName}` : ""}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            {continueRows.length > 0
+              ? "Pick up where you left off."
+              : "Your next read is waiting in your library."}
+          </p>
+        </div>
+        <AddTitleDialog />
+      </div>
+
+      <section className="space-y-3">
+        <h2 className="flex items-center gap-2 font-semibold">
+          <Flame className="h-4 w-4 text-primary" /> Continue
+        </h2>
+        {continueRows.length === 0 ? (
+          <EmptyState
+            icon={<BookOpen className="h-8 w-8" />}
+            title="Nothing in progress"
+            description="Add a title to your library to start tracking chapters and episodes."
+            action={<AddTitleDialog />}
+          />
+        ) : (
+          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {continueRows.map((row) => {
+              const unit = progressUnitForType(row.mediaType);
+              const opened = unit === "EPISODE" ? row.openedEpisode : row.openedChapter;
+              const completed =
+                unit === "EPISODE" ? row.completedEpisode : row.completedChapter;
+              const current = Math.max(opened ?? 0, completed ?? 0);
+              return (
+                <li key={row.titleId}>
+                  <Card className="h-full">
+                    <CardContent className="flex h-full flex-col gap-2 p-4">
+                      <Badge variant="outline" className="w-fit">
+                        {mediaTypeLabel(row.mediaType)}
+                      </Badge>
+                      <Link
+                        href={`/title/${row.titleId}`}
+                        className="line-clamp-1 font-medium hover:text-primary"
+                      >
+                        {row.title}
+                      </Link>
+                      <p className="text-sm text-muted-foreground">
+                        {unit === "EPISODE" ? "Episode" : "Chapter"} {current}
+                      </p>
+                      <div className="mt-auto flex items-center gap-2 pt-2">
+                        <Link
+                          href={`/title/${row.titleId}`}
+                          className="inline-flex h-9 flex-1 items-center justify-center rounded-md bg-primary text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90"
+                        >
+                          Continue
+                        </Link>
+                        {row.lastSourceUrl && (
+                          <a
+                            href={row.lastSourceUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex h-9 items-center justify-center rounded-md border border-input px-3 text-sm hover:bg-accent"
+                          >
+                            Open source
+                          </a>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+
+      {(releases.length > 0 || unread.length > 0) && (
+        <section className="grid gap-3 sm:grid-cols-2">
+          {releases.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent releases</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-1.5 text-sm">
+                  {releases.map((rel) => (
+                    <li key={rel.id} className="flex items-center gap-2">
+                      <span>🔔</span>
+                      <Link href={`/title/${rel.titleId}`} className="hover:text-primary">
+                        {rel.title}
+                      </Link>
+                      <span className="text-muted-foreground">
+                        — {rel.releaseType.toLowerCase()} {rel.number}
+                      </span>
+                      <span className="ml-auto text-xs text-muted-foreground">
+                        {relativeTime(rel.detectedAt)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
+
+          {unread.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Bell className="h-4 w-4" /> Notifications
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-1.5 text-sm">
+                  {unread.map((n) => (
+                    <li key={n.id} className="flex items-center gap-2">
+                      <span>{n.message}</span>
+                      <span className="ml-auto text-xs text-muted-foreground">
+                        {relativeTime(n.createdAt)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
+        </section>
+      )}
+
+      <section className="space-y-3">
+        <h2 className="flex items-center gap-2 font-semibold">
+          <LibraryBig className="h-4 w-4 text-primary" /> Library
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          {activeCount.length} titles tracked ·{" "}
+          <Link href="/library" className="text-primary hover:underline">
+            Open library
+          </Link>
+        </p>
+      </section>
+    </div>
+  );
+}

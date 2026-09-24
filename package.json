@@ -1,0 +1,29 @@
+{
+  "name": "animangabucklist",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "description": "AniMangaBuckList - a lightweight, privacy-conscious anime/manga/manhwa/manhua/novel media tracker",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "dev": "npm --workspace apps/web run dev",
+    "build": "npm --workspace apps/web run build",
+    "start": "npm --workspace apps/web run start",
+    "typecheck": "tsc -p packages/types --noEmit && tsc -p packages/database --noEmit && tsc -p packages/providers --noEmit && tsc -p apps/web --noEmit",
+    "db:generate": "npm --workspace packages/database run db:generate",
+    "db:migrate": "npm --workspace packages/database run db:migrate"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  },
+  "dependencies": {
+    "@neon/config": "^1.7.3",
+    "@neon/env": "^1.4.4"
+  }
+}

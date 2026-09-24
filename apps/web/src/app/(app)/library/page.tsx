@@ -1,0 +1,218 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { and, count, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
+import { BookMarked } from "lucide-react";
+import type { LibraryStatus, MediaType } from "@ambl/types";
+import {
+  titles,
+  userLibrary,
+  userProgress,
+  userTags,
+  tags as tagsTable,
+  titleAliases,
+} from "@ambl/database";
+import { requireUser } from "@/lib/auth";
+import { getDb } from "@/lib/db";
+import { LibraryItemCard } from "@/components/library-item-card";
+import { LibraryToolbar } from "@/components/library-toolbar";
+import { EmptyState } from "@/components/empty-state";
+import { Pagination } from "@/components/pagination";
+import { AddTitleDialog } from "@/components/add-title-dialog";
+import { LIBRARY_STATUSES, libraryStatusLabel } from "@/lib/format";
+import { cn } from "@/lib/utils";
+
+export const metadata: Metadata = { title: "Library" };
+export const dynamic = "force-dynamic";
+
+const VALID_STATUS = new Set<string>(["ALL", ...LIBRARY_STATUSES]);
+const VALID_TYPE = new Set<string>([
+  "ANIME",
+  "MANGA",
+  "MANHWA",
+  "MANHUA",
+  "LIGHT_NOVEL",
+  "WEB_NOVEL",
+]);
+const VALID_SORT = new Set(["updated", "added", "title"]);
+const PAGE_SIZE = 24;
+
+export default async function LibraryPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const user = await requireUser();
+  const sp = await searchParams;
+
+  const status = VALID_STATUS.has(String(sp.status ?? "ALL"))
+    ? String(sp.status)
+    : "ALL";
+  const mediaType = VALID_TYPE.has(String(sp.type ?? "")) ? String(sp.type) : "";
+  const tag = String(sp.tag ?? "").trim().slice(0, 40);
+  const sort = VALID_SORT.has(String(sp.sort ?? "updated")) ? String(sp.sort) : "updated";
+  const q = String(sp.q ?? "").trim().slice(0, 120);
+  const rawPage = Number(sp.page ?? 1);
+  const page = Number.isFinite(rawPage) && rawPage >= 1 ? Math.floor(rawPage) : 1;
+
+  const db = getDb();
+
+  const conditions = [eq(userLibrary.userId, user.id)];
+  if (status !== "ALL") {
+    conditions.push(eq(userLibrary.status, status as LibraryStatus));
+  }
+  if (mediaType) {
+    conditions.push(eq(titles.mediaType, mediaType as MediaType));
+  }
+  if (q) {
+    conditions.push(
+      or(
+        ilike(titles.primaryTitle, `%${q}%`),
+        ilike(titles.englishTitle ?? "", `%${q}%`),
+        ilike(titles.japaneseTitle ?? "", `%${q}%`),
+        sql`exists (select 1 from ${titleAliases} ta where ta.title_id = ${titles.id} and ta.alias ilike ${`%${q}%`})`,
+      )!,
+    );
+  }
+  if (tag) {
+    conditions.push(
+      sql`exists (select 1 from ${userTags} ut join ${tagsTable} tg on tg.id = ut.tag_id where ut.user_id = ${user.id} and ut.title_id = ${titles.id} and tg.name ilike ${`%${tag}%`})`,
+    );
+  }
+
+  const where = and(...conditions);
+
+  const [statusCounts, [{ total }]] = await Promise.all([
+    db
+      .select({ status: userLibrary.status, count: count() })
+      .from(userLibrary)
+      .where(eq(userLibrary.userId, user.id))
+      .groupBy(userLibrary.status),
+    db
+      .select({ total: count() })
+      .from(userLibrary)
+      .innerJoin(titles, eq(userLibrary.titleId, titles.id))
+      .where(where!),
+  ]);
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+
+  const orderBy =
+    sort === "title"
+      ? [sql`lower(${titles.primaryTitle}) asc`]
+      : sort === "added"
+        ? [desc(userLibrary.addedAt)]
+        : [desc(userLibrary.updatedAt)];
+
+  const rows = await db
+    .select({
+      titleId: titles.id,
+      title: titles.primaryTitle,
+      englishTitle: titles.englishTitle,
+      mediaType: titles.mediaType,
+      status: userLibrary.status,
+      isFavorite: userLibrary.isFavorite,
+      year: titles.year,
+      openedChapter: userProgress.lastOpenedChapter,
+      completedChapter: userProgress.lastCompletedChapter,
+      openedEpisode: userProgress.lastOpenedEpisode,
+      completedEpisode: userProgress.lastCompletedEpisode,
+      lastSourceUrl: userProgress.lastSourceUrl,
+      updatedAt: userLibrary.updatedAt,
+    })
+    .from(userLibrary)
+    .innerJoin(titles, eq(userLibrary.titleId, titles.id))
+    .leftJoin(
+      userProgress,
+      and(
+        eq(userProgress.userId, user.id),
+        eq(userProgress.titleId, titles.id),
+      ),
+    )
+    .where(where!)
+    .orderBy(orderBy[0], sql`${titles.primaryTitle} asc`)
+    .offset((currentPage - 1) * PAGE_SIZE)
+    .limit(PAGE_SIZE);
+
+  const countMap = new Map(statusCounts.map((r) => [r.status, r.count]));
+  const tabs = [
+    { key: "ALL", label: "All", count: total },
+    ...LIBRARY_STATUSES.map((s) => ({
+      key: s,
+      label: libraryStatusLabel(s),
+      count: countMap.get(s) ?? 0,
+    })),
+  ];
+
+  const buildHref = (p: number) => {
+    const params = new URLSearchParams();
+    if (status !== "ALL") params.set("status", status);
+    if (mediaType) params.set("type", mediaType);
+    if (tag) params.set("tag", tag);
+    if (sort !== "updated") params.set("sort", sort);
+    if (q) params.set("q", q);
+    params.set("page", String(p));
+    return `/library?${params.toString()}`;
+  };
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold tracking-tight">Library</h1>
+        <AddTitleDialog />
+      </div>
+
+      <LibraryToolbar
+        status={status}
+        mediaType={mediaType}
+        tag={tag}
+        sort={sort}
+        query={q}
+      />
+
+      <div className="flex w-full items-center gap-1 overflow-x-auto rounded-lg border bg-muted/40 p-1">
+        {tabs.map((tab) => (
+          <Link
+            key={tab.key}
+            href={tab.key === "ALL" ? "/library" : buildHref(1).replace(/[?&]page=\d+/, "")}
+            scroll={false}
+            className={cn(
+              "flex-1 whitespace-nowrap rounded-md px-3 py-1.5 text-center text-sm font-medium transition-colors",
+              status === tab.key
+                ? "bg-card text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {tab.label}
+            <span className="ml-1.5 text-xs text-muted-foreground">{tab.count}</span>
+          </Link>
+        ))}
+      </div>
+
+      {rows.length === 0 ? (
+        <EmptyState
+          icon={<BookMarked className="h-8 w-8" />}
+          title={
+            status === "ALL" && !q && !mediaType && !tag
+              ? "Your library is empty"
+              : "No titles match"
+          }
+          description={
+            status === "ALL" && !q && !mediaType && !tag
+              ? "Search MyAnimeList and add anime and manga you follow."
+              : "Try adjusting the filters."
+          }
+          action={status === "ALL" && !q && !mediaType && !tag ? <AddTitleDialog /> : undefined}
+        />
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {rows.map((row) => (
+            <LibraryItemCard key={row.titleId} item={row} />
+          ))}
+        </div>
+      )}
+
+      <Pagination page={currentPage} totalPages={totalPages} buildHref={buildHref} />
+    </div>
+  );
+}
