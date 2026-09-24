@@ -2,9 +2,10 @@ import type { Metadata } from "next";
 import { requireUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { eq } from "drizzle-orm";
-import { userOauthAccounts, users } from "@ambl/database";
+import { publicApiKeys, userOauthAccounts, users } from "@ambl/database";
 import { SettingsForm } from "@/components/settings-form";
 import { ConnectedAccounts } from "@/components/connected-accounts";
+import { ApiKeyManager } from "@/components/api-key-manager";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const metadata: Metadata = { title: "Settings" };
@@ -33,6 +34,16 @@ export default async function SettingsPage({
     .where(eq(userOauthAccounts.userId, user.id));
 
   const linkedProviders = new Set(authAccounts.map((a) => a.provider));
+
+  const apiKeys = await db
+    .select({
+      id: publicApiKeys.id,
+      name: publicApiKeys.name,
+      lastFour: publicApiKeys.lastFour,
+      createdAt: publicApiKeys.createdAt,
+    })
+    .from(publicApiKeys)
+    .where(eq(publicApiKeys.userId, user.id));
 
   return (
     <div className="mx-auto max-w-2xl space-y-5">
@@ -66,6 +77,17 @@ export default async function SettingsPage({
           <ConnectedAccounts
             linkedGoogle={linkedProviders.has("google")}
             hasPassword={hasPassword}
+          />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Browser extension API key</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ApiKeyManager
+            keys={apiKeys.map((k) => ({ ...k, createdAt: k.createdAt.toISOString() }))}
           />
         </CardContent>
       </Card>

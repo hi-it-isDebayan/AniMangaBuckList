@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>AniManga BuckList Tracker</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header>
+    <h1>AniManga BuckList Tracker</h1>
+    <label class="switch"><input type="checkbox" id="enabled"><span>Enabled</span></label>
+  </header>
+
+  <section class="card">
+    <label>API key
+      <input type="password" id="apiKey" placeholder="ambl_..." autocomplete="off">
+    </label>
+    <div class="row">
+      <button id="save">Save</button>
+      <span id="status" class="muted"></span>
+    </div>
+  </section>
+
+  <details class="card advanced">
+    <summary>Advanced</summary>
+    <label>API base URL
+      <input type="text" id="baseUrl" placeholder="https://animanga.debayandas.in">
+    </label>
+  </details>
+
+  <section class="card">
+    <div class="row between">
+      <h2>Library <span id="count" class="badge">0</span></h2>
+      <button id="refresh">Refresh</button>
+    </div>
+    <ul id="list"></ul>
+  </section>
+
+  <footer>
+    <a href="https://animanga.debayandas.in/settings" target="_blank" rel="noopener">Open settings to get an API key</a>
+    <span class="muted">Key is stored only in this browser.</span>
+  </footer>
+
+  <script src="popup.js"></script>
+</body>
+</html>
