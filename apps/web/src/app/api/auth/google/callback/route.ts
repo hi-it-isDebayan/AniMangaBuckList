@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
-import { createSession } from "@/lib/auth";
-import { consumeOAuthCookies, findOrCreateOAuthUser, googleRedirectUri } from "@/lib/oauth";
+import { createSession, getCurrentUser } from "@/lib/auth";
+import {
+  consumeOAuthCookies,
+  findOrCreateOAuthUser,
+  googleRedirectUri,
+  linkOAuthAccount,
+} from "@/lib/oauth";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +23,7 @@ export async function GET(request: Request) {
     );
   }
 
-  const { ok } = await consumeOAuthCookies(state);
+  const { ok, mode } = await consumeOAuthCookies(state);
   if (!ok) {
     return NextResponse.redirect(
       new URL("/login?error=Stale%20sign-in%20request%2C%20try%20again", request.url),
@@ -45,7 +50,7 @@ export async function GET(request: Request) {
         new URL("/login?error=Google%20token%20exchange%20failed", request.url),
       );
     }
-    const token = (await tokenRes.json()) as { id_token?: string };
+    const token = (await tokenRes.json()) as { id_token?: string; access_token?: string };
 
     const infoRes = await fetch(
       `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(token.id_token ?? "")}`,
@@ -69,12 +74,47 @@ export async function GET(request: Request) {
       );
     }
 
-    const userId = await findOrCreateOAuthUser({
-      provider: "google",
+    let picture: string | undefined;
+    if (token.access_token) {
+      try {
+        const profileRes = await fetch(
+          "https://www.googleapis.com/oauth2/v3/userinfo",
+          { headers: { Authorization: `Bearer ${token.access_token}` } },
+        );
+        if (profileRes.ok) {
+          const profile = (await profileRes.json()) as { picture?: string; name?: string };
+          picture = profile.picture;
+        }
+      } catch {
+        // avatar is optional
+      }
+    }
+
+    const identity = {
       providerId: info.sub,
       email: info.email,
       displayName: info.name,
-    });
+      pictureUrl: picture,
+    };
+
+    if (mode === "link") {
+      const user = await getCurrentUser();
+      if (!user) {
+        return NextResponse.redirect(
+          new URL("/login?error=Please%20sign%20in%20first", request.url),
+        );
+      }
+      try {
+        await linkOAuthAccount(user.id, "google", identity);
+      } catch (err) {
+        return NextResponse.redirect(
+          new URL(`/settings?error=${encodeURIComponent((err as Error).message)}`, request.url),
+        );
+      }
+      return NextResponse.redirect(new URL("/settings", request.url));
+    }
+
+    const userId = await findOrCreateOAuthUser("google", identity);
     await createSession(userId);
     return NextResponse.redirect(new URL("/", request.url));
   } catch {

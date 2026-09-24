@@ -39,9 +39,24 @@ export default async function AppLayout({
           <div className="ml-auto flex items-center gap-1 sm:gap-2">
             <AddTitleDialog />
             <ThemeToggle />
-            <span className="hidden text-sm text-muted-foreground md:inline">
-              {user.displayName || user.email}
-            </span>
+            <Link href="/profile" className="flex items-center gap-2 rounded-md px-1.5 py-1 hover:bg-accent sm:px-2">
+              {user.avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={user.avatarUrl}
+                  alt=""
+                  referrerPolicy="no-referrer"
+                  className="h-7 w-7 rounded-full object-cover ring-1 ring-border"
+                />
+              ) : (
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary ring-1 ring-border">
+                  {(user.displayName || user.email || "?").slice(0, 1).toUpperCase()}
+                </span>
+              )}
+              <span className="hidden max-w-[10rem] truncate text-sm text-muted-foreground lg:inline">
+                {user.displayName || user.email}
+              </span>
+            </Link>
             <Link href="/settings" aria-label="Settings" title="Settings">
               <Button variant="ghost" size="sm" className="px-2">
                 <Settings className="h-4 w-4" />

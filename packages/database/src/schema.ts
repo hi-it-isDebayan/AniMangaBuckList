@@ -91,6 +91,7 @@ export const users = pgTable(
     passwordHash: text("password_hash"),
     oauthProvider: varchar("oauth_provider", { length: 20 }),
     oauthId: varchar("oauth_id", { length: 255 }),
+    avatarUrl: text("avatar_url"),
     preferences: jsonb("preferences")
       .$type<UserPreferences>()
       .notNull()
@@ -105,6 +106,34 @@ export const users = pgTable(
   (t) => [
     uniqueIndex("users_email_uq").on(t.email),
     index("users_oauth_idx").on(t.oauthProvider, t.oauthId),
+  ],
+);
+
+export const userOauthAccounts = pgTable(
+  "user_oauth_accounts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    provider: varchar("provider", { length: 20 }).notNull(),
+    oauthId: varchar("oauth_id", { length: 255 }).notNull(),
+    displayName: varchar("display_name", { length: 120 }),
+    pictureUrl: text("picture_url"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("user_oauth_accounts_provider_oauth_id_uq").on(
+      t.provider,
+      t.oauthId,
+    ),
+    uniqueIndex("user_oauth_accounts_user_provider_uq").on(
+      t.userId,
+      t.provider,
+    ),
+    index("user_oauth_accounts_user_id_idx").on(t.userId),
   ],
 );
 
@@ -487,6 +516,7 @@ export const aiConversations = pgTable(
 
 export const usersRelations = relations(users, ({ many }) => ({
   sessions: many(sessions),
+  oauthAccounts: many(userOauthAccounts),
   library: many(userLibrary),
   progress: many(userProgress),
   progressHistory: many(progressHistory),
@@ -494,6 +524,10 @@ export const usersRelations = relations(users, ({ many }) => ({
   ratings: many(ratings),
   tags: many(tags),
   notifications: many(notifications),
+}));
+
+export const userOauthAccountsRelations = relations(userOauthAccounts, ({ one }) => ({
+  user: one(users, { fields: [userOauthAccounts.userId], references: [users.id] }),
 }));
 
 export const titlesRelations = relations(titles, ({ many }) => ({

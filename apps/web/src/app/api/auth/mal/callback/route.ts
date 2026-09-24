@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
-import { createSession } from "@/lib/auth";
-import { consumeOAuthCookies, findOrCreateOAuthUser, malRedirectUri } from "@/lib/oauth";
+import { createSession, getCurrentUser } from "@/lib/auth";
+import {
+  consumeOAuthCookies,
+  findOrCreateOAuthUser,
+  linkOAuthAccount,
+  malRedirectUri,
+} from "@/lib/oauth";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +23,7 @@ export async function GET(request: Request) {
     );
   }
 
-  const { ok, verifier } = await consumeOAuthCookies(state);
+  const { ok, verifier, mode } = await consumeOAuthCookies(state);
   if (!ok || !verifier) {
     return NextResponse.redirect(
       new URL("/login?error=Stale%20sign-in%20request%2C%20try%20again", request.url),
@@ -63,13 +68,32 @@ export async function GET(request: Request) {
         new URL("/login?error=Could%20not%20fetch%20MAL%20profile", request.url),
       );
     }
-    const me = (await meRes.json()) as { id: number; name?: string };
+    const me = (await meRes.json()) as { id: number; name?: string; picture?: string };
 
-    const userId = await findOrCreateOAuthUser({
-      provider: "mal",
+    const identity = {
       providerId: String(me.id),
       displayName: me.name,
-    });
+      pictureUrl: me.picture,
+    };
+
+    if (mode === "link") {
+      const user = await getCurrentUser();
+      if (!user) {
+        return NextResponse.redirect(
+          new URL("/login?error=Please%20sign%20in%20first", request.url),
+        );
+      }
+      try {
+        await linkOAuthAccount(user.id, "mal", identity);
+      } catch (err) {
+        return NextResponse.redirect(
+          new URL(`/settings?error=${encodeURIComponent((err as Error).message)}`, request.url),
+        );
+      }
+      return NextResponse.redirect(new URL("/settings", request.url));
+    }
+
+    const userId = await findOrCreateOAuthUser("mal", identity);
     await createSession(userId);
     return NextResponse.redirect(new URL("/", request.url));
   } catch {

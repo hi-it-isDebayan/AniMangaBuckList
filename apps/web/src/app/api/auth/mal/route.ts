@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { setOAuthStateCookies } from "@/lib/oauth";
+import { setOAuthStateCookies, type OAuthMode } from "@/lib/oauth";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +12,9 @@ export async function GET(request: Request) {
     );
   }
 
-  const { state, verifier } = await setOAuthStateCookies();
+  const url = new URL(request.url);
+  const mode: OAuthMode = url.searchParams.get("mode") === "link" ? "link" : "signin";
+  const { state, verifier } = await setOAuthStateCookies(mode);
 
   const authorizeUrl =
     `https://myanimelist.net/v1/oauth2/authorize?` +

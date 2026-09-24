@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { googleRedirectUri, setOAuthStateCookies } from "@/lib/oauth";
+import { googleRedirectUri, setOAuthStateCookies, type OAuthMode } from "@/lib/oauth";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +11,9 @@ export async function GET(request: Request) {
     );
   }
 
-  const { state } = await setOAuthStateCookies();
+  const url = new URL(request.url);
+  const mode: OAuthMode = url.searchParams.get("mode") === "link" ? "link" : "signin";
+  const { state } = await setOAuthStateCookies(mode);
 
   const authorizeUrl = "https://accounts.google.com/o/oauth2/v2/auth?" +
     new URLSearchParams({

@@ -1,13 +1,8 @@
 "use client";
 
 import { useActionState } from "react";
-import { LogOut, Check } from "lucide-react";
-import { logoutAction } from "@/actions/auth";
-import {
-  logoutAllSessionsAction,
-  updateProfileAction,
-  type SettingsActionState,
-} from "@/actions/settings";
+import { Check } from "lucide-react";
+import { updateProfileAction, type SettingsActionState } from "@/actions/settings";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 
@@ -76,22 +71,6 @@ export function SettingsForm({
         </Button>
       </div>
     </form>
-
-    <div className="mt-5 space-y-2 border-t border-border pt-5">
-      <Label>Sessions</Label>
-      <div className="flex flex-wrap gap-2">
-        <form action={logoutAction}>
-          <Button type="submit" variant="outline" size="sm">
-            <LogOut className="h-3.5 w-3.5" /> Sign out this device
-          </Button>
-        </form>
-        <form action={logoutAllSessionsAction}>
-          <Button type="submit" variant="outline" size="sm" className="text-destructive">
-            <LogOut className="h-3.5 w-3.5" /> Sign out everywhere
-          </Button>
-        </form>
-      </div>
-    </div>
     </>
   );
 }
