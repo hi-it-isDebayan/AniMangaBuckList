@@ -11,6 +11,13 @@
     <label class="switch"><input type="checkbox" id="enabled"><span>Enabled</span></label>
   </header>
 
+  <section class="card" id="pendingCard" hidden>
+    <div class="row between">
+      <h2>Needs confirmation <span id="pendingCount" class="badge">0</span></h2>
+    </div>
+    <div id="pendingWrap"></div>
+  </section>
+
   <section class="card">
     <label>API key
       <input type="password" id="apiKey" placeholder="ambl_..." autocomplete="off">

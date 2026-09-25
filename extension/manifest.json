@@ -1,21 +1,11 @@
 {
   "manifest_version": 3,
   "name": "AniManga BuckList Tracker",
-  "version": "1.0.0",
-  "description": "Tracks your anime/manga reading and watching progress on AniManga BuckList.",
+  "version": "1.1.0",
+  "description": "Auto-tracks anime/manga progress on any site you read or watch.",
   "minimum_chrome_version": "88",
   "permissions": ["storage", "tabs", "activeTab", "scripting", "alarms"],
-  "host_permissions": [
-    "https://myanimelist.net/*",
-    "https://*.mangadex.org/*",
-    "https://animanga.debayandas.in/*",
-    "https://anilist.co/*",
-    "https://*.crunchyroll.com/*",
-    "http://localhost/*",
-    "https://localhost/*",
-    "https://*/*",
-    "http://*/*"
-  ],
+  "host_permissions": ["*://*/*"],
   "background": {
     "service_worker": "background.js"
   },
@@ -37,14 +27,7 @@
   },
   "content_scripts": [
     {
-      "matches": [
-        "https://myanimelist.net/anime/*",
-        "https://myanimelist.net/manga/*",
-        "https://anilist.co/anime/*",
-        "https://anilist.co/manga/*",
-        "https://*.mangadex.org/title/*",
-        "https://*.crunchyroll.com/*"
-      ],
+      "matches": ["http://*/*", "https://*/*"],
       "js": ["content.js"],
       "run_at": "document_idle",
       "all_frames": true

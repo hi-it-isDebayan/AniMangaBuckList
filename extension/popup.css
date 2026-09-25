@@ -184,3 +184,42 @@ footer a {
   text-decoration: none;
   white-space: nowrap;
 }
+
+.pending {
+  border-top: 1px solid var(--border);
+  padding: 8px 0;
+}
+
+.pending-title {
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.search-row {
+  margin-top: 6px;
+}
+
+.search-row input {
+  flex: 1;
+}
+
+.search-results {
+  margin-top: 6px;
+}
+
+.search-results button {
+  display: block;
+  width: 100%;
+  margin-bottom: 4px;
+  background: var(--card);
+  border: 1px solid var(--accent);
+  color: var(--text);
+  text-align: left;
+}
+
+.ghost {
+  margin-top: 8px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}

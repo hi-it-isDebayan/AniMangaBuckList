@@ -10,6 +10,9 @@ export function SiteFooter() {
           <span>{new Date().getFullYear()}</span>
         </p>
         <nav className="flex items-center gap-4">
+          <Link href="/download" className="transition-colors hover:text-foreground">
+            Apps
+          </Link>
           <Link href="/privacy" className="transition-colors hover:text-foreground">
             Privacy Policy
           </Link>

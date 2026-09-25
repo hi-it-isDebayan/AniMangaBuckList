@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">AniManga Tracker</string>
+    <string name="acc_service_desc">Detects the anime or manga you are currently reading/watching on your phone and syncs it to your AniManga BuckList account.</string>
+    <string name="notification_channel_name">Tracking status</string>
+    <string name="notification_title">AniManga Tracker active</string>
+    <string name="notification_text">Working in the background to catch what you read and watch.</string>
+</resources>

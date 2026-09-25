@@ -1,0 +1,58 @@
+name: Build Android app + extension
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "mobile/**"
+      - "extension/**"
+      - ".github/workflows/android.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.7
+
+      - name: Build APK
+        working-directory: mobile/android
+        run: gradle assembleRelease --no-daemon --stacktrace
+
+      - name: Install zip tool
+        run: sudo apt-get update && sudo apt-get install -y zip
+
+      - name: Package extension zip
+        working-directory: extension
+        run: |
+          rm -f ../animanga-tracker-extension.zip
+          zip -r ../animanga-tracker-extension.zip . -x ".*"
+
+      - name: Locate APK
+        id: apk
+        run: echo "apk=$(ls mobile/android/app/build/outputs/apk/release/*.apk)" >> "$GITHUB_OUTPUT"
+
+      - name: Create or update release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Latest build
+          body: "Automated build of the AniManga Tracker Android app and browser extension."
+          files: |
+            ${{ steps.apk.outputs.apk }}
+            animanga-tracker-extension.zip
+          fail_on_unmatched_files: false
+          generate_release_notes: false

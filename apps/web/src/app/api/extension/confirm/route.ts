@@ -9,7 +9,7 @@ import {
   unauthorized,
   verifyApiKey,
 } from "@/lib/api-keys";
-import { rememberTitleMatch } from "@/lib/title-resolver";
+import { rememberTitleMatch, normalizeTitle } from "@/lib/title-resolver";
 import { recordProgress } from "@/lib/progress";
 
 export const dynamic = "force-dynamic";
@@ -81,12 +81,15 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  await rememberTitleMatch(db, {
-    userId: auth.userId,
-    normalizedTitle: detectedTitle,
-    titleId,
-    host: host ?? null,
-  });
+  const normalizedDetected = normalizeTitle(detectedTitle);
+  if (normalizedDetected) {
+    await rememberTitleMatch(db, {
+      userId: auth.userId,
+      normalizedTitle: normalizedDetected,
+      titleId,
+      host: host ?? null,
+    });
+  }
 
   await recordProgress(db, {
     userId: auth.userId,

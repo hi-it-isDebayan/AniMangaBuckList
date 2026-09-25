@@ -26,6 +26,7 @@ function save() {
   chrome.runtime.sendMessage({ type: "SET_CONFIG", payload: payload }, () => {
     $("#status").textContent = payload.apiKey ? "Saved" : "Saved (no key)";
     loadLibrary();
+    loadPending();
   });
 }
 
@@ -93,6 +94,126 @@ function progressLine(p) {
   return parts.join(" - ") || "-";
 }
 
+function loadPending() {
+  chrome.runtime.sendMessage({ type: "GET_PENDING" }, (res) => {
+    const items = (res && res.items) || [];
+    const card = $("#pendingCard");
+    const wrap = $("#pendingWrap");
+    wrap.textContent = "";
+    $("#pendingCount").textContent = items.length;
+    card.hidden = items.length === 0;
+    items.forEach((it) => wrap.appendChild(pendingItem(it)));
+  });
+}
+
+function pendingItem(it) {
+  const d = it.detected || {};
+  const box = document.createElement("div");
+  box.className = "pending";
+
+  const title = document.createElement("div");
+  title.className = "pending-title";
+  title.textContent = (d.title || d.normalized || "Unknown") + "  \u00b7  " + (d.unit ? d.unit.toLowerCase() : "?") + " " + d.value;
+
+  const sub = document.createElement("div");
+  sub.className = "muted";
+  sub.textContent = (d.host || "a website") + "  \u00b7  detected as \u201C" + d.normalized + "\u201D";
+
+  const searchRow = document.createElement("div");
+  searchRow.className = "row search-row";
+  const input = document.createElement("input");
+  input.type = "text";
+  input.placeholder = "Search your library...";
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") doSearch(input.value); });
+  const searchBtn = document.createElement("button");
+  searchBtn.textContent = "Search";
+  searchBtn.addEventListener("click", () => doSearch(input.value));
+  searchRow.append(input, searchBtn);
+
+  const results = document.createElement("div");
+  results.className = "search-results";
+
+  function doSearch(q) {
+    if (!q.trim()) return;
+    results.textContent = "";
+    chrome.runtime.sendMessage({ type: "RESOLVE_SEARCH", q: q.trim(), unit: d.unit || "CHAPTER" }, (r) => {
+      const cands = (r && r.ok && r.data && r.data.candidates) || [];
+      if (!cands.length) {
+        const none = document.createElement("div");
+        none.className = "muted";
+        none.textContent = "No matches \u2014 add this title on the website first.";
+        results.appendChild(none);
+        return;
+      }
+      cands.forEach((c) => results.appendChild(confirmBtn(c, c.primaryTitle)));
+    });
+  }
+
+  const manualRow = document.createElement("div");
+  manualRow.className = "row search-row";
+  const manualInput = document.createElement("input");
+  manualInput.type = "text";
+  manualInput.placeholder = "Detected title (editable)...";
+  manualInput.value = d.title || "";
+  manualInput.addEventListener("keydown", (e) => { if (e.key === "Enter") manualInput.blur(); });
+  const useBtn = document.createElement("button");
+  useBtn.textContent = "Log it";
+  useBtn.addEventListener("click", () => {
+    const label = manualInput.value.trim();
+    if (!label) return;
+    results.textContent = "";
+    chrome.runtime.sendMessage({ type: "RESOLVE_SEARCH", q: label, unit: d.unit || "CHAPTER" }, (r) => {
+      const cands = (r && r.ok && r.data && r.data.candidates) || [];
+      if (!cands.length) {
+        const none = document.createElement("div");
+        none.className = "muted";
+        none.textContent = "No matching title in your library \u2014 add it on the website first.";
+        results.appendChild(none);
+        return;
+      }
+      cands.forEach((c) => results.appendChild(confirmBtn(c, c.primaryTitle)));
+    });
+  });
+  manualRow.append(manualInput, useBtn);
+
+  const dismiss = document.createElement("button");
+  dismiss.className = "ghost";
+  dismiss.textContent = "Dismiss";
+  dismiss.addEventListener("click", () => {
+    chrome.runtime.sendMessage({ type: "DISMISS_PENDING", dedupeKey: it.dedupeKey }, () => loadPending());
+  });
+
+  function confirmBtn(c, label) {
+    const b = document.createElement("button");
+    b.textContent = (label || c.primaryTitle) + (c.score ? "  (" + Math.round(c.score * 100) + "%)" : "");
+    b.addEventListener("click", () => confirmMatch(c, label));
+    return b;
+  }
+
+  function confirmMatch(c, label) {
+    const payload = {
+      titleId: c.titleId,
+      detectedTitle: manualInput.value.trim() || d.title || label || c.primaryTitle,
+      titleCandidates: (d.titleCandidates || []).concat([d.title, label, manualInput.value]).filter(Boolean),
+      unit: d.unit || "CHAPTER",
+      value: d.value,
+      kind: d.kind || "OPENED",
+      source: d.source,
+      sourceUrl: d.sourceUrl,
+      host: d.host
+    };
+    chrome.runtime.sendMessage({ type: "CONFIRM_PROGRESS", payload, dedupeKey: it.dedupeKey }, (res) => {
+      if (res && res.ok) {
+        loadPending();
+        loadLibrary();
+      }
+    });
+  }
+
+  box.append(title, sub, searchRow, results, manualRow, dismiss);
+  return box;
+}
+
 $("#save").addEventListener("click", save);
 $("#refresh").addEventListener("click", loadLibrary);
 $("#enabled").addEventListener("change", save);
@@ -102,3 +223,4 @@ document.addEventListener("keydown", (e) => {
 
 readConfig();
 loadLibrary();
+loadPending();

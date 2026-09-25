@@ -4,76 +4,159 @@ function getEnabled(cb) {
   chrome.storage.local.get({ enabled: true }, (cfg) => cb(!!cfg.enabled));
 }
 
-function detectPage() {
-  const path = location.pathname;
-  const host = location.hostname;
+const SKIP_HOSTS = new Set([
+  "animanga.debayandas.in",
+  "chrome.google.com",
+  "chrome",
+  "newtab",
+]);
 
-  if (host === "myanimelist.net" || host === "www.myanimelist.net") {
-    const m = path.match(/^\/(anime|manga)\/(\d+)/);
-    if (!m) return null;
-    const malId = +m[2];
-    if (m[1] === "manga") return { malId, unit: "CHAPTER" };
-    const ep = path.match(/(?:episode|ep)\/(\d+)/i);
-    return { malId, unit: "EPISODE", value: ep ? +ep[1] : undefined };
-  }
+const UNIT_TOKENS = {
+  CHAPTER: ["chapter", "chapters", "chap", "ch", "capitulo", "cap"],
+  EPISODE: ["episode", "episodes", "ep", "episodio"],
+};
 
-  if (host === "anilist.co" || host === "www.anilist.co") {
-    const m = path.match(/^\/(anime|manga)\/(\d+)/);
-    if (!m) return null;
-    if (m[1] === "manga") return { unit: "CHAPTER" };
-    return { unit: "EPISODE" };
-  }
+function collectTextCandidates() {
+  const out = [];
+  const push = (v) => {
+    const t = (v || "").replace(/\s+/g, " ").trim();
+    if (t && t.length > 1) out.push(t);
+  };
 
-  if (host === "mangadex.org" || host.endsWith(".mangadex.org")) {
-    return null;
-  }
+  push(document.title);
 
-  return matchReader(path);
+  document.querySelectorAll('meta[property="og:title"], meta[name="twitter:title"]').forEach((el) => push(el.content));
+
+  const h1 = document.querySelector("h1, .entry-title, .post-title, .read-title, .title");
+  if (h1) push(h1.textContent);
+
+  document.querySelectorAll('script[type="application/ld+json"]').forEach((s) => {
+    try {
+      const data = JSON.parse(s.textContent);
+      const walk = (node) => {
+        if (!node || typeof node !== "object") return;
+        if (Array.isArray(node)) return node.forEach(walk);
+        if (typeof node.name === "string") push(node.name);
+        if (typeof node.headline === "string") push(node.headline);
+        Object.values(node).forEach(walk);
+      };
+      walk(data);
+    } catch (e) {}
+  });
+
+  return out;
 }
 
-function matchReader(path) {
-  const segs = path.split("/").filter(Boolean);
-  for (let i = 1; i < segs.length; i++) {
-    if (/^\d+$/.test(segs[i])) {
-      const prev = (segs[i - 1] || "").toLowerCase();
-      if (/^(chapter|chapters|ch|volume|vol)$/.test(prev)) return { unit: "CHAPTER", value: +segs[i] };
-      if (/^(episode|episodes|ep|e)$/.test(prev)) return { unit: "EPISODE", value: +segs[i] };
-    } else {
-      const m = segs[i].match(/^(chapter|chapters|ch|episode|episodes|ep|volume|vol|v)[-_]?(\d+)$/i);
-      if (!m) continue;
-      const kw = m[1].toLowerCase();
-      if (/^(chapter|chapters|ch)$/.test(kw)) return { unit: "CHAPTER", value: +m[2] };
-      if (/^(episode|episodes|ep)$/.test(kw)) return { unit: "EPISODE", value: +m[2] };
-      return { unit: null, value: +m[2] };
+function extractFromString(str) {
+  if (!str) return null;
+  const s = str.toLowerCase();
+  for (const unit of ["CHAPTER", "EPISODE"]) {
+    for (const tok of UNIT_TOKENS[unit]) {
+      const re = new RegExp(`(?:^|[^a-z0-9])${tok}[.\\s\\/-]*?(\\d{1,4})(?:$$|[^a-z0-9])`);
+      const m = s.match(re);
+      if (m) return { unit, value: parseInt(m[1], 10) };
     }
   }
   return null;
 }
 
-function sendProgress(det) {
+function extractTrailingNumber(url) {
+  const pathname = (() => {
+    try {
+      return new URL(url).pathname.replace(/\/+$/, "");
+    } catch (e) {
+      return "";
+    }
+  })();
+  const last = pathname.split("/").pop() || "";
+  const m = last.match(/^(.*?)-(\d{1,5})$/);
+  if (!m) return null;
+  const num = parseInt(m[2], 10);
+  const titlePart = m[1].trim();
+  if (!titlePart || titlePart.length < 3 || !/[a-z]/i.test(titlePart)) return null;
+  if (!/series|manga|manhwa|manhua|title|comic|chapter|reader|read|novel|comics|anime|watch|episode/i.test(pathname)) return null;
+  return {
+    unit: /episode|ep-|episode-|watch|anime|dub|sub/i.test(pathname) ? "EPISODE" : "CHAPTER",
+    value: num,
+  };
+}
+
+function extractUnitValue() {
+  const url = location.href;
+  const urlMatch = extractFromString(url);
+  if (urlMatch) return urlMatch;
+  const trailing = extractTrailingNumber(url);
+  if (trailing) return trailing;
+  const titleMatch = extractFromString(document.title);
+  if (titleMatch) return titleMatch;
+  const h1 = document.querySelector("h1, .entry-title, .post-title, .read-title");
+  if (h1) {
+    const h1Match = extractFromString(h1.textContent);
+    if (h1Match) return h1Match;
+  }
+  return null;
+}
+
+function pickBestTitle(candidates) {
+  const cleaned = candidates
+    .map((t) => t.replace(/[|•·]/g, " ").replace(/\s+/g, " ").trim())
+    .filter((t) => t.length > 2);
+  const ranked = cleaned
+    .map((t) => ({
+      t,
+      hasJunk:
+        t.includes("episode") ||
+        t.includes("chapter") ||
+        t.includes("ep ") ||
+        t.includes("ch ") ||
+        /[|•·]/.test(t),
+    }))
+    .sort((a, b) => Number(a.hasJunk) - Number(b.hasJunk));
+  const seen = new Set();
+  const result = [];
+  for (const r of ranked) {
+    const key = r.t.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      result.push(r.t);
+    }
+  }
+  return result;
+}
+
+function sendProgress(det, titleCandidates) {
   const payload = {
+    title: det.title,
+    titleCandidates,
     unit: det.unit,
     value: det.value,
     kind: "OPENED",
     source: location.hostname,
-    sourceUrl: location.href
+    sourceUrl: location.href,
+    host: location.hostname,
   };
-  if (det.malId) payload.malId = det.malId;
   try {
-    chrome.runtime.sendMessage({ type: "POST_PROGRESS", payload: payload }, () => {});
+    chrome.runtime.sendMessage({ type: "POST_PROGRESS", payload }, () => {});
   } catch (e) {}
 }
 
 function tick() {
   getEnabled((enabled) => {
     if (!enabled) return;
-    const det = detectPage();
-    if (!det || !det.value || det.value <= 0 || !det.unit || !det.malId) return;
-    if (location.href === localStorage.getItem(LAST_URL_KEY)) return;
-    localStorage.setItem(LAST_URL_KEY, location.href);
-    sendProgress(det);
+    const host = location.hostname;
+    if (SKIP_HOSTS.has(host)) return;
+
+    const candidates = pickBestTitle(collectTextCandidates());
+    const uv = extractUnitValue();
+    if (!uv || !uv.value || uv.value <= 0) return;
+
+    const urlKey = location.href;
+    if (urlKey === localStorage.getItem(LAST_URL_KEY)) return;
+    localStorage.setItem(LAST_URL_KEY, urlKey);
+
+    sendProgress({ title: candidates[0] || "Untitled", ...uv }, candidates);
   });
 }
 
-setInterval(tick, 2000);
+setInterval(tick, 2500);
 tick();
