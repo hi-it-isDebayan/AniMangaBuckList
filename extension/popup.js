@@ -11,10 +11,10 @@ function readConfig() {
 }
 
 function renderConfig(c) {
-  $("#enabled").checked = !!c.enabled;
-  $("#apiKey").value = c.apiKey;
-  $("#baseUrl").value = c.baseUrl;
-  $("#status").textContent = keyLabel(c.apiKey);
+  if ($("#enabled")) $("#enabled").checked = !!c.enabled;
+  if ($("#apiKey")) $("#apiKey").value = c.apiKey;
+  if ($("#baseUrl")) $("#baseUrl").value = c.baseUrl;
+  if ($("#status")) $("#status").textContent = keyLabel(c.apiKey);
 }
 
 function maskKey(k) {
@@ -58,6 +58,7 @@ function testExtension() {
 
 function loadLog() {
   const wrap = $("#logWrap");
+  if (!wrap) return;
   chrome.runtime.sendMessage({ type: "GET_LOG" }, (res) => {
     const log = (res && res.log) || [];
     wrap.textContent = "";
@@ -84,11 +85,13 @@ function loadLog() {
 
 function loadLibrary() {
   const list = $("#list");
+  if (!list) return;
   list.textContent = "";
-  $("#count").textContent = "...";
+  const setCount = (v) => { if ($("#count")) $("#count").textContent = v; };
+  setCount("...");
   chrome.runtime.sendMessage({ type: "GET_LIBRARY" }, (res) => {
     if (!res || !res.ok) {
-      $("#count").textContent = "-";
+      setCount("-");
       const li = document.createElement("li");
       li.className = "err";
       const err = (res && res.error) || "unknown";
@@ -98,7 +101,7 @@ function loadLibrary() {
     }
     const items = (res.data && res.data.items) || [];
     const tracked = items.filter((it) => isTracked(it));
-    $("#count").textContent = tracked.length + "/" + items.length;
+    setCount(tracked.length + "/" + items.length);
     if (!tracked.length) {
       const li = document.createElement("li");
       li.className = "muted";
@@ -147,13 +150,15 @@ function progressLine(p) {
 }
 
 function loadPending() {
+  const card = $("#pendingCard");
+  if (!card) return;
   chrome.runtime.sendMessage({ type: "GET_PENDING" }, (res) => {
     const items = (res && res.items) || [];
-    const card = $("#pendingCard");
     const wrap = $("#pendingWrap");
-    wrap.textContent = "";
-    $("#pendingCount").textContent = items.length;
+    if ($("#pendingCount")) $("#pendingCount").textContent = items.length;
     card.hidden = items.length === 0;
+    if (!wrap) return;
+    wrap.textContent = "";
     items.forEach((it) => wrap.appendChild(pendingItem(it)));
   });
 }
@@ -266,10 +271,11 @@ function pendingItem(it) {
   return box;
 }
 
-$("#save").addEventListener("click", save);
-$("#test").addEventListener("click", testExtension);
-$("#refresh").addEventListener("click", loadLibrary);
-$("#enabled").addEventListener("change", save);
+const on = (id, evt, fn) => { const el = $(id); if (el) el.addEventListener(evt, fn); };
+on("save", "click", save);
+on("test", "click", testExtension);
+on("refresh", "click", loadLibrary);
+on("enabled", "change", save);
 document.addEventListener("keydown", (e) => {
   if (e.key === "Enter") save();
 });

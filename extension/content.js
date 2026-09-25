@@ -14,8 +14,21 @@ function safeSet(k, v) {
   } catch (e) {}
 }
 
+function hasContext() {
+  try {
+    return !!(typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.id);
+  } catch (e) {
+    return false;
+  }
+}
+
 function getEnabled(cb) {
-  chrome.storage.local.get({ enabled: true }, (cfg) => cb(!!cfg.enabled));
+  if (!hasContext()) { cb(false); return; }
+  try {
+    chrome.storage.local.get({ enabled: true }, (cfg) => cb(!!cfg.enabled));
+  } catch (e) {
+    cb(false);
+  }
 }
 
 const SKIP_HOSTS = new Set([
@@ -179,6 +192,7 @@ function pickBestTitle(candidates) {
 }
 
 function sendProgress(det, titleCandidates) {
+  if (!hasContext()) return;
   const payload = {
     title: det.title,
     titleCandidates: (titleCandidates || []).slice(0, 10),
@@ -195,6 +209,7 @@ function sendProgress(det, titleCandidates) {
 }
 
 function logEvent(msg) {
+  if (!hasContext()) return;
   try {
     chrome.runtime.sendMessage({ type: "LOG_EVENT", msg }, () => {});
   } catch (e) {}
