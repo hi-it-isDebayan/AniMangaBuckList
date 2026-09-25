@@ -58,3 +58,17 @@ jobs:
             animanga-tracker-extension.zip
           fail_on_unmatched_files: false
           generate_release_notes: false
+
+      - name: Remove stale APK asset
+        run: |
+          repo="${{ github.repository }}"
+          rel_id=$(gh api "repos/$repo/releases/tags/latest" --jq '.id')
+          asset_id=$(gh api "repos/$repo/releases/$rel_id/assets" \
+            --jq '.[] | select(.name=="app-release-unsigned.apk") | .id')
+          if [ -n "$asset_id" ]; then
+            gh api --method DELETE -H "Accept: application/vnd.github+json" \
+              "repos/$repo/releases/assets/$asset_id"
+            echo "Removed stale app-release-unsigned.apk"
+          else
+            echo "No stale asset to remove"
+          fi
