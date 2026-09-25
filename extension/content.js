@@ -127,7 +127,7 @@ function pickBestTitle(candidates) {
 function sendProgress(det, titleCandidates) {
   const payload = {
     title: det.title,
-    titleCandidates,
+    titleCandidates: (titleCandidates || []).slice(0, 10),
     unit: det.unit,
     value: det.value,
     kind: "OPENED",

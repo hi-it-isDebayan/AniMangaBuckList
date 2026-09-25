@@ -56,13 +56,11 @@ public final class ApiClient {
         }
     }
 
-    public void search(final String q, final Callback cb) {
+    public void search(final String q, final String unit, final Callback cb) {
         try {
-            String u = baseUrl + "/api/extension/resolve?q=" + java.net.URLEncoder.encode(q, "UTF-8") + "&unit=CHAPTER";
-            async(Method.GET, u, null, (json, status, error) -> {
-                if (json != null) cb.onResult(json, status, error);
-                else cb.onResult(json, status, error);
-            });
+            String u = baseUrl + "/api/extension/resolve?q=" + java.net.URLEncoder.encode(q, "UTF-8")
+                    + "&unit=" + java.net.URLEncoder.encode(unit == null || unit.isEmpty() ? "CHAPTER" : unit, "UTF-8");
+            async(Method.GET, u, null, (json, status, error) -> cb.onResult(json, status, error));
         } catch (Exception e) {
             cb.onResult(null, -1, e.getMessage());
         }

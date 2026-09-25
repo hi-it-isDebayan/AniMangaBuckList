@@ -192,7 +192,7 @@ public class MainActivity extends Activity {
 
     private void findCandidates(final JSONObject d, final String query, final LinearLayout card) {
         if (query.isEmpty()) return;
-        new ApiClient(this).search(query, (json, status, error) -> runOnUiThread(() -> {
+        new ApiClient(this).search(query, d.optString("unit", "CHAPTER"), (json, status, error) -> runOnUiThread(() -> {
             if (status != 200 || json == null) {
                 Toast.makeText(this, "Search failed: " + (error != null ? error : "?"), Toast.LENGTH_SHORT).show();
                 return;

@@ -19,7 +19,7 @@ const progressSchema = z
     titleId: z.string().uuid().optional(),
     malId: z.number().int().optional(),
     title: z.string().max(500).optional(),
-    titleCandidates: z.array(z.string().max(500)).max(10).optional(),
+    titleCandidates: z.array(z.string().max(500)).max(20).optional(),
     unit: z.enum(["EPISODE", "CHAPTER"]),
     value: z.number().int().min(1),
     kind: z.enum(["OPENED", "COMPLETED"]).default("OPENED"),

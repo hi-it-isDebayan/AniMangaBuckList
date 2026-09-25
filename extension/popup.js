@@ -194,7 +194,7 @@ function pendingItem(it) {
     const payload = {
       titleId: c.titleId,
       detectedTitle: manualInput.value.trim() || d.title || label || c.primaryTitle,
-      titleCandidates: (d.titleCandidates || []).concat([d.title, label, manualInput.value]).filter(Boolean),
+      titleCandidates: (d.titleCandidates || []).concat([d.title, label, manualInput.value]).filter(Boolean).slice(0, 10),
       unit: d.unit || "CHAPTER",
       value: d.value,
       kind: d.kind || "OPENED",
