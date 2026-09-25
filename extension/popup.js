@@ -1,5 +1,19 @@
 const $ = (id) => document.getElementById(id);
 
+const REQUIRED = ["save", "test", "refresh", "enabled", "apiKey", "baseUrl", "status", "list", "count", "pendingCard", "pendingWrap", "pendingCount", "logWrap"];
+
+function showMismatchWarn() {
+  const missing = REQUIRED.filter((id) => !$(id));
+  if (!missing.length) return;
+  try {
+    const div = document.createElement("div");
+    div.className = "err";
+    div.style.cssText = "background:#fdd;color:#900;padding:8px;border-radius:8px;margin:8px 0;font-size:12px;white-space:pre-wrap";
+    div.textContent = "popup.html is out of date. Missing: " + missing.join(", ") + "\nUse the popup.html from the latest animanga-tracker-extension.zip, delete the old extension folder, and Load unpacked again (v1.2.4).";
+    document.body.prepend(div);
+  } catch (e) {}
+}
+
 const DEFAULTS = {
   baseUrl: "https://animanga.debayandas.in",
   apiKey: "",
@@ -28,13 +42,17 @@ function keyLabel(k) {
 }
 
 function save() {
+  const baseEl = $("#baseUrl");
+  const keyEl = $("#apiKey");
+  const enabledEl = $("#enabled");
+  if (!baseEl || !keyEl || !enabledEl) { showMismatchWarn(); return; }
   const payload = {
-    baseUrl: $("#baseUrl").value.trim().replace(/\/+$/, ""),
-    apiKey: $("#apiKey").value.trim(),
-    enabled: $("#enabled").checked
+    baseUrl: baseEl.value.trim().replace(/\/+$/, ""),
+    apiKey: keyEl.value.trim(),
+    enabled: enabledEl.checked
   };
   chrome.runtime.sendMessage({ type: "SET_CONFIG", payload: payload }, () => {
-    $("#status").textContent = payload.apiKey ? "Saved" : "Saved (no key)";
+    if ($("#status")) $("#status").textContent = payload.apiKey ? "Saved" : "Saved (no key)";
     loadLibrary();
     loadPending();
     loadLog();
@@ -42,15 +60,19 @@ function save() {
 }
 
 function testExtension() {
-  $("#status").textContent = "Testing...";
+  const baseEl = $("#baseUrl");
+  const keyEl = $("#apiKey");
+  const enabledEl = $("#enabled");
+  if (!baseEl || !keyEl || !enabledEl) { showMismatchWarn(); return; }
+  if ($("#status")) $("#status").textContent = "Testing...";
   const payload = {
-    baseUrl: $("#baseUrl").value.trim().replace(/\/+$/, ""),
-    apiKey: $("#apiKey").value.trim(),
-    enabled: $("#enabled").checked
+    baseUrl: baseEl.value.trim().replace(/\/+$/, ""),
+    apiKey: keyEl.value.trim(),
+    enabled: enabledEl.checked
   };
   chrome.runtime.sendMessage({ type: "SET_CONFIG", payload: payload }, () => {
     chrome.runtime.sendMessage({ type: "TEST_EXTENSION" }, (res) => {
-      $("#status").textContent = (res && res.detail) || "No response from background";
+      if ($("#status")) $("#status").textContent = (res && res.detail) || "No response from background";
       loadLog();
     });
   });
@@ -284,3 +306,4 @@ readConfig();
 loadLibrary();
 loadPending();
 loadLog();
+showMismatchWarn();
