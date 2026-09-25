@@ -28,3 +28,8 @@ mobile/android/local.properties
 mobile/android/.gradle/
 mobile/android/app/build/
 mobile/android/build/
+
+# Android signing keystore (private)
+mobile/android/keystore.properties
+mobile/android/*.jks
+mobile/android/*.keystore

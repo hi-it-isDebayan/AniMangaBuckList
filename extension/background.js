@@ -5,6 +5,26 @@ const DEFAULTS = {
 };
 
 const PENDING_KEY = "ambl-pending";
+const LOG_KEY = "ambl-log";
+
+function addLog(msg) {
+  chrome.storage.local.get({ [LOG_KEY]: [] }, (cfg) => {
+    const arr = (cfg[LOG_KEY] || []).slice(-39);
+    arr.push({ t: Date.now(), msg: String(msg) });
+    chrome.storage.local.set({ [LOG_KEY]: arr }, () => {});
+  });
+}
+
+function getLog(cb) {
+  chrome.storage.local.get({ [LOG_KEY]: [] }, (cfg) => cb(cfg[LOG_KEY] || []));
+}
+
+function describeError(err) {
+  if (err === "no-key") return "no API key set in extension";
+  if (err === "network") return "network error";
+  if (err === "disabled") return "tracking disabled";
+  return err || "unknown error";
+}
 
 function getConfig(cb) {
   chrome.storage.local.get(DEFAULTS, cb);
@@ -90,10 +110,47 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         method: "POST",
         body: JSON.stringify(msg.payload)
       }).then((res) => {
+        const p = msg.payload || {};
+        const tag = (p.host || p.source || "site") + ": " + (p.title || "?")
+          + " " + (p.unit || "?") + " " + p.value;
         if (res.status === 409 && res.data && res.data.needsConfirmation) {
           addPending(res.data.detected);
+          addLog("SENT 409 " + tag + " (needs confirmation)");
+        } else if (res.ok) {
+          addLog("SENT 200 " + tag + (res.status ? " (status " + res.status + ")" : ""));
+        } else {
+          addLog("SEND ERR " + tag + " => " + describeError(res.error));
         }
         sendResponse(res);
+      });
+      return true;
+    case "LOG_EVENT":
+      if (msg && msg.msg) addLog(msg.msg);
+      sendResponse({ ok: true });
+      return true;
+    case "GET_LOG":
+      getLog((log) => sendResponse({ ok: true, log: log }));
+      return true;
+    case "TEST_EXTENSION":
+      apiFetch(
+        "/api/extension/resolve?q=" + encodeURIComponent("One Piece") + "&unit=CHAPTER",
+        { method: "GET" }
+      ).then((res) => {
+        let detail;
+        if (res.ok) {
+          const n = (res.data && res.data.candidates && res.data.candidates.length) || 0;
+          detail = "Connection OK \u2014 resolve returned " + n + " candidates";
+        } else if (res.error === "no-key") {
+          detail = "No API key set in the extension";
+        } else if (res.error === "network") {
+          detail = "Network error \u2014 check base URL or internet";
+        } else if (res.status === 401) {
+          detail = "HTTP 401 \u2014 wrong or missing API key";
+        } else {
+          detail = "Error: " + describeError(res.error);
+        }
+        addLog("TEST " + detail);
+        sendResponse({ ok: true, detail: detail });
       });
       return true;
     case "GET_PENDING":

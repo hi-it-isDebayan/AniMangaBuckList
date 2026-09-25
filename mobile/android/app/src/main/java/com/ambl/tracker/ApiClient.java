@@ -31,7 +31,14 @@ public final class ApiClient {
     private enum Method { GET, POST }
 
     public void report(final Extractor.Result det) {
-        if (apiKey.isEmpty()) return;
+        report(det, null);
+    }
+
+    public void report(final Extractor.Result det, final Callback cb) {
+        if (apiKey.isEmpty()) {
+            if (cb != null) cb.onResult(null, -1, "No API key saved in the app");
+            return;
+        }
         try {
             JSONObject body = new JSONObject();
             body.put("title", det.title == null ? "" : det.title);
@@ -50,9 +57,20 @@ public final class ApiClient {
                 if (status == 409 && json != null && json.optBoolean("needsConfirmation", false)) {
                     PendingStore.add(ctx, json.optJSONObject("detected"));
                 }
+                if (cb != null) cb.onResult(json, status, error);
             });
         } catch (Exception e) {
-            // ignore
+            if (cb != null) cb.onResult(null, -1, e.getMessage());
+        }
+    }
+
+    public void testConnection(final Callback cb) {
+        try {
+            String u = baseUrl + "/api/extension/resolve?q="
+                    + java.net.URLEncoder.encode("One Piece", "UTF-8") + "&unit=CHAPTER";
+            async(Method.GET, u, null, cb);
+        } catch (Exception e) {
+            cb.onResult(null, -1, e.getMessage());
         }
     }
 

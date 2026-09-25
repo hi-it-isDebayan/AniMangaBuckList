@@ -27,6 +27,41 @@ function save() {
     $("#status").textContent = payload.apiKey ? "Saved" : "Saved (no key)";
     loadLibrary();
     loadPending();
+    loadLog();
+  });
+}
+
+function testExtension() {
+  $("#status").textContent = "Testing...";
+  chrome.runtime.sendMessage({ type: "TEST_EXTENSION" }, (res) => {
+    $("#status").textContent = (res && res.detail) || "No response from background";
+    loadLog();
+  });
+}
+
+function loadLog() {
+  const wrap = $("#logWrap");
+  chrome.runtime.sendMessage({ type: "GET_LOG" }, (res) => {
+    const log = (res && res.log) || [];
+    wrap.textContent = "";
+    if (!log.length) {
+      const empty = document.createElement("div");
+      empty.className = "muted";
+      empty.textContent = "No activity yet. Open a chapter/episode page while reading, then check here.";
+      wrap.appendChild(empty);
+      return;
+    }
+    log.slice(-40).forEach((e) => {
+      const row = document.createElement("div");
+      row.className = "log-line";
+      const tm = document.createElement("span");
+      tm.className = "t";
+      tm.textContent = new Date(e.t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+      const msg = document.createElement("span");
+      msg.textContent = e.msg;
+      row.append(tm, msg);
+      wrap.appendChild(row);
+    });
   });
 }
 
@@ -215,6 +250,7 @@ function pendingItem(it) {
 }
 
 $("#save").addEventListener("click", save);
+$("#test").addEventListener("click", testExtension);
 $("#refresh").addEventListener("click", loadLibrary);
 $("#enabled").addEventListener("change", save);
 document.addEventListener("keydown", (e) => {
@@ -224,3 +260,4 @@ document.addEventListener("keydown", (e) => {
 readConfig();
 loadLibrary();
 loadPending();
+loadLog();

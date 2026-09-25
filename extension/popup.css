@@ -223,3 +223,26 @@ footer a {
   border: 1px solid var(--border);
   color: var(--muted);
 }
+
+.log {
+  margin-top: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+  font: 11px/1.5 ui-monospace, Consolas, monospace;
+}
+
+.log-line {
+  padding: 3px 0;
+  border-top: 1px solid var(--border);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.log-line:first-child {
+  border-top: none;
+}
+
+.log-line .t {
+  color: var(--muted);
+  margin-right: 6px;
+}

@@ -140,6 +140,12 @@ function sendProgress(det, titleCandidates) {
   } catch (e) {}
 }
 
+function logEvent(msg) {
+  try {
+    chrome.runtime.sendMessage({ type: "LOG_EVENT", msg }, () => {});
+  } catch (e) {}
+}
+
 function tick() {
   getEnabled((enabled) => {
     if (!enabled) return;
@@ -148,13 +154,22 @@ function tick() {
 
     const candidates = pickBestTitle(collectTextCandidates());
     const uv = extractUnitValue();
-    if (!uv || !uv.value || uv.value <= 0) return;
+    if (!uv || !uv.value || uv.value <= 0) {
+      const nowUrl = location.href;
+      if (localStorage.getItem("ambl-last-skip-url") !== nowUrl) {
+        localStorage.setItem("ambl-last-skip-url", nowUrl);
+        logEvent("SKIP " + host + ": no chapter/episode number found in title/h1/url");
+      }
+      return;
+    }
 
     const urlKey = location.href;
     if (urlKey === localStorage.getItem(LAST_URL_KEY)) return;
     localStorage.setItem(LAST_URL_KEY, urlKey);
 
-    sendProgress({ title: candidates[0] || "Untitled", ...uv }, candidates);
+    const title = candidates[0] || "Untitled";
+    logEvent("DETECT " + title + " " + uv.unit + " " + uv.value + " @ " + host);
+    sendProgress({ title: title, ...uv }, candidates);
   });
 }
 

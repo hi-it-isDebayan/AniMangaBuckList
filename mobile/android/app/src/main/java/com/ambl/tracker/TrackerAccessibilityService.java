@@ -11,14 +11,17 @@ import java.util.List;
 
 public class TrackerAccessibilityService extends AccessibilityService {
     private static final long DEBOUNCE_MS = 45000;
+    private static final long LINE_LOOP_PERIOD = 10000;
     private String lastFpr = "";
     private long lastAt = 0;
     private volatile long lastReport = 0;
+    private long lastSkipLog = 0;
 
     @Override
     protected void onServiceConnected() {
         super.onServiceConnected();
         reloadState();
+        Tracker.log(this, "SVC accessibility service connected");
     }
 
     private void reloadState() {
@@ -46,7 +49,15 @@ public class TrackerAccessibilityService extends AccessibilityService {
             List<String> texts = Extractor.collectTexts(root, 3000);
             String blob = String.join(" | ", texts);
             Extractor.Result det = Extractor.detect(null, blob, texts);
-            if (det == null || det.value <= 0) return;
+            if (det == null || det.value <= 0) {
+                long now = System.currentTimeMillis();
+                if (now - lastSkipLog > LINE_LOOP_PERIOD) {
+                    lastSkipLog = now;
+                    Tracker.log(this, "SKIP no chapter/episode number in screen text (nodes="
+                            + texts.size() + ", chars=" + blob.length() + ")");
+                }
+                return;
+            }
 
             String fpr = (det.title == null ? "" : det.title) + "|" + det.unit + "|" + det.value;
             long now = System.currentTimeMillis();
@@ -59,9 +70,29 @@ public class TrackerAccessibilityService extends AccessibilityService {
                 .putLong(Tracker.KEY_LAST_AT, lastAt)
                 .apply();
 
+            String title = det.title == null ? "" : det.title;
+            if (title.length() > 48) title = title.substring(0, 48);
+            Tracker.log(this, "DETECT " + title + " " + det.unit + " " + det.value);
+
             if ((now - lastReport) < 4000) return; // throttle across different detections
             lastReport = now;
-            new ApiClient(this).report(det);
+            new ApiClient(this).report(det, (json, status, error) -> {
+                if (status == 200) {
+                    String note = json != null && json.optBoolean("needsConfirmation", false)
+                            ? " needs-confirmation" : "";
+                    Tracker.log(this, "SENT 200 OK" + note);
+                } else if (status == 409) {
+                    Tracker.log(this, "SENT 409 needs-confirmation");
+                } else if (status == 404) {
+                    Tracker.log(this, "SENT 404 no match \u2014 tap Find in library");
+                } else if (status == 401) {
+                    Tracker.log(this, "SENT 401 bad/empty API key");
+                } else if (status < 0) {
+                    Tracker.log(this, "SEND ERR " + (error != null ? error : "network"));
+                } else {
+                    Tracker.log(this, "SENT " + status);
+                }
+            });
         } finally {
             root.recycle();
         }

@@ -1,15 +1,18 @@
 package com.ambl.tracker;
 
 import android.Manifest;
+import android.accessibilityservice.AccessibilityServiceInfo;
 import android.app.Activity;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.PowerManager;
 import android.text.InputType;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.accessibility.AccessibilityManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
@@ -27,6 +30,8 @@ public class MainActivity extends Activity {
     private EditText baseInput;
     private EditText keyInput;
     private LinearLayout pendingBox;
+    private TextView statusView;
+    private TextView logView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -75,6 +80,34 @@ public class MainActivity extends Activity {
             } catch (Exception ignored) {}
         });
         root.addView(getKey);
+
+        Button test = new Button(this);
+        test.setText("Test connection");
+        test.setOnClickListener(v -> testConnection());
+        root.addView(test);
+
+        statusView = new TextView(this);
+        statusView.setTextSize(13);
+        statusView.setPadding(0, dp(8), 0, dp(4));
+        root.addView(statusView);
+
+        TextView guide = new TextView(this);
+        guide.setTextSize(12);
+        guide.setText("If background tracking stops on Samsung:\n"
+                + "1) Apps > AniManga BuckList Tracker > Battery > Unrestricted\n"
+                + "2) Battery & device care > Battery > Background usage limits > "
+                + "Never sleeping apps > add this app\n"
+                + "3) After every phone restart/update re-enable: "
+                + "Accessibility > Installed apps > AniManga BuckList Tracker");
+        guide.setPadding(0, dp(4), 0, dp(4));
+        root.addView(guide);
+
+        TextView logLabel = label("Activity log");
+        root.addView(logLabel);
+        logView = new TextView(this);
+        logView.setTextSize(11);
+        logView.setPadding(0, 0, 0, dp(8));
+        root.addView(logView);
 
         TextView pendLabel = label("Needs confirmation");
         root.addView(pendLabel);
@@ -131,6 +164,75 @@ public class MainActivity extends Activity {
         super.onResume();
         loadConfig();
         renderPending();
+        renderStatus();
+        renderLog();
+    }
+
+    private boolean accessibilityEnabled() {
+        AccessibilityManager am = (AccessibilityManager) getSystemService(Context.ACCESSIBILITY_SERVICE);
+        if (am == null) return false;
+        String myId = getPackageName() + "/" + TrackerAccessibilityService.class.getName();
+        for (AccessibilityServiceInfo i : am.getEnabledAccessibilityServiceList(
+                AccessibilityServiceInfo.FEEDBACK_ALL_MASK)) {
+            if (i.getId().equals(myId)) return true;
+        }
+        return false;
+    }
+
+    private boolean notificationsAllowed() {
+        if (Build.VERSION.SDK_INT < 33) return true;
+        return checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                == PackageManager.PERMISSION_GRANTED;
+    }
+
+    private boolean batteryExempt() {
+        try {
+            PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+            return pm != null && pm.isIgnoringBatteryOptimizations(getPackageName());
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private void renderStatus() {
+        if (statusView == null) return;
+        boolean keySet = !Tracker.apiKey(this).isEmpty();
+        boolean acc = accessibilityEnabled();
+        StringBuilder s = new StringBuilder();
+        s.append("API key: ").append(keySet ? "saved" : "NOT SET").append('\n');
+        s.append("Background detection: ").append(acc ? "ON" : "OFF").append('\n');
+        s.append("Notifications: ").append(notificationsAllowed() ? "allowed" : "BLOCKED").append('\n');
+        s.append("Battery: ").append(batteryExempt() ? "exempt from optimization" : "optimized (Samsung may kill it)");
+        statusView.setText(s.toString());
+        statusView.setTextColor(acc ? 0xFF4CAF50 : 0xFFFF5252);
+    }
+
+    private void renderLog() {
+        if (logView == null) return;
+        String t = Tracker.logText(this);
+        logView.setText(t.isEmpty() ? "No activity yet. Open a chapter/episode page and come back." : t);
+    }
+
+    private void testConnection() {
+        Tracker.log(this, "Testing connection to " + Tracker.baseUrl(this) + " ...");
+        renderLog();
+        new ApiClient(this).testConnection((json, status, error) -> runOnUiThread(() -> {
+            String msg;
+            if (status == 200 && json != null) {
+                int n = json.optJSONArray("candidates") == null
+                        ? 0 : json.optJSONArray("candidates").length();
+                msg = "Connection OK \u2014 resolve returned " + n + " candidates";
+            } else if (status == 401) {
+                msg = "HTTP 401 \u2014 wrong or missing API key";
+            } else if (status == -1) {
+                msg = "Network error: " + (error != null ? error : "?");
+            } else {
+                msg = "Unexpected: HTTP " + status;
+            }
+            Tracker.log(this, "TEST " + msg);
+            renderLog();
+            Toast.makeText(this, msg, Toast.LENGTH_LONG).show();
+        }));
     }
 
     private void renderPending() {
