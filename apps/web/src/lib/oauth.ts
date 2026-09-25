@@ -32,6 +32,15 @@ export function getRequestBaseUrl(request: Request): string {
   return new URL(request.url).origin;
 }
 
+export function getOAuthBaseUrl(request: Request, pinnedRedirectUri?: string): string {
+  if (pinnedRedirectUri) {
+    try {
+      return new URL(pinnedRedirectUri).origin;
+    } catch {}
+  }
+  return getRequestBaseUrl(request);
+}
+
 const stateCookieOpts = {
   httpOnly: true,
   sameSite: "lax" as const,

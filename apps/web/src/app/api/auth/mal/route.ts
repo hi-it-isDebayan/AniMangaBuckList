@@ -1,14 +1,15 @@
 import { NextResponse } from "next/server";
-import { setOAuthStateCookies, type OAuthMode } from "@/lib/oauth";
+import { getOAuthBaseUrl, setOAuthStateCookies, type OAuthMode } from "@/lib/oauth";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   const clientId = process.env.MAL_CLIENT_ID;
   const clientSecret = process.env.MAL_CLIENT_SECRET;
+  const baseUrl = getOAuthBaseUrl(request, process.env.MAL_REDIRECT_URI);
   if (!clientId || !clientSecret) {
     return NextResponse.redirect(
-      new URL("/login?error=Maybe%20add%20MAL%20credentials%20first", request.url),
+      new URL("/login?error=Maybe%20add%20MAL%20credentials%20first", baseUrl),
     );
   }
 

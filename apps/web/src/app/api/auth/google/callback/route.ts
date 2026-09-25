@@ -3,6 +3,7 @@ import { createSession, getCurrentUser } from "@/lib/auth";
 import {
   consumeOAuthCookies,
   findOrCreateOAuthUser,
+  getOAuthBaseUrl,
   googleRedirectUri,
   linkOAuthAccount,
 } from "@/lib/oauth";
@@ -16,17 +17,18 @@ export async function GET(request: Request) {
   const state = url.searchParams.get("state") ?? "";
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  const baseUrl = getOAuthBaseUrl(request, process.env.GOOGLE_REDIRECT_URI);
 
   if (error || !code || !clientId || !clientSecret) {
     return NextResponse.redirect(
-      new URL("/login?error=Google%20sign-in%20declined", request.url),
+      new URL("/login?error=Google%20sign-in%20declined", baseUrl),
     );
   }
 
   const { ok, mode } = await consumeOAuthCookies(state);
   if (!ok) {
     return NextResponse.redirect(
-      new URL("/login?error=Stale%20sign-in%20request%2C%20try%20again", request.url),
+      new URL("/login?error=Stale%20sign-in%20request%2C%20try%20again", baseUrl),
     );
   }
 
@@ -47,7 +49,7 @@ export async function GET(request: Request) {
     });
     if (!tokenRes.ok) {
       return NextResponse.redirect(
-        new URL("/login?error=Google%20token%20exchange%20failed", request.url),
+        new URL("/login?error=Google%20token%20exchange%20failed", baseUrl),
       );
     }
     const token = (await tokenRes.json()) as { id_token?: string; access_token?: string };
@@ -57,7 +59,7 @@ export async function GET(request: Request) {
     );
     if (!infoRes.ok || !token.id_token) {
       return NextResponse.redirect(
-        new URL("/login?error=Could%20not%20verify%20Google%20identity", request.url),
+        new URL("/login?error=Could%20not%20verify%20Google%20identity", baseUrl),
       );
     }
     const info = (await infoRes.json()) as {
@@ -70,7 +72,7 @@ export async function GET(request: Request) {
 
     if (!info.sub || info.aud !== clientId || info.email_verified !== "true" || !info.email) {
       return NextResponse.redirect(
-        new URL("/login?error=Google%20identity%20could%20not%20be%20verified", request.url),
+        new URL("/login?error=Google%20identity%20could%20not%20be%20verified", baseUrl),
       );
     }
 
@@ -101,25 +103,25 @@ export async function GET(request: Request) {
       const user = await getCurrentUser();
       if (!user) {
         return NextResponse.redirect(
-          new URL("/login?error=Please%20sign%20in%20first", request.url),
+          new URL("/login?error=Please%20sign%20in%20first", baseUrl),
         );
       }
       try {
         await linkOAuthAccount(user.id, "google", identity);
       } catch (err) {
         return NextResponse.redirect(
-          new URL(`/settings?error=${encodeURIComponent((err as Error).message)}`, request.url),
+          new URL(`/settings?error=${encodeURIComponent((err as Error).message)}`, baseUrl),
         );
       }
-      return NextResponse.redirect(new URL("/settings", request.url));
+      return NextResponse.redirect(new URL("/settings", baseUrl));
     }
 
     const userId = await findOrCreateOAuthUser("google", identity);
     await createSession(userId);
-    return NextResponse.redirect(new URL("/", request.url));
+    return NextResponse.redirect(new URL("/", baseUrl));
   } catch {
     return NextResponse.redirect(
-      new URL("/login?error=Google%20sign-in%20failed", request.url),
+      new URL("/login?error=Google%20sign-in%20failed", baseUrl),
     );
   }
 }

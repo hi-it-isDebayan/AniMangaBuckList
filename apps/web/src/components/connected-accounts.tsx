@@ -68,6 +68,7 @@ function ProviderRow({
   href: string;
 }) {
   const [pending, startTransition] = useTransition();
+  const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const provider = name === "Google" ? "google" : "mal";
 
@@ -76,22 +77,34 @@ function ProviderRow({
       <div>
         <p className="text-sm font-medium">{name}</p>
         <p className="text-sm text-muted-foreground">{detail}</p>
+        {connected ? (
+          <p className="mt-0.5 text-xs text-muted-foreground/80">
+            Disconnecting only stops Google sign-in. This account stays signed in on this device
+            until you sign out.
+          </p>
+        ) : null}
         {error && <p className="text-sm text-destructive">{error}</p>}
       </div>
       {connected ? (
         <Button
           variant="outline"
           size="sm"
+          className={confirming ? "text-destructive hover:text-destructive" : undefined}
           disabled={pending}
-          onClick={() =>
+          onClick={() => {
+            if (!confirming) {
+              setConfirming(true);
+              return;
+            }
+            setConfirming(false);
             startTransition(async () => {
               const res = await unlinkProviderAction({ provider });
               if (!res.ok) setError(res.error ?? "Could not unlink.");
               else setError(null);
-            })
-          }
+            });
+          }}
         >
-          <Unlink className="h-3.5 w-3.5" /> Disconnect
+          <Unlink className="h-3.5 w-3.5" /> {confirming ? "Confirm?" : "Disconnect"}
         </Button>
       ) : (
         <a href={href}>

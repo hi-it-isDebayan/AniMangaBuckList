@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { and, asc, desc, eq } from "drizzle-orm";
-import { ExternalLink, Flame, History, Link2, Tags, NotebookPen } from "lucide-react";
+import { BookOpenText, ExternalLink, Flame, History, Link2, Tags, NotebookPen } from "lucide-react";
 import type { LinkType, ProgressUnit } from "@ambl/types";
 import {
   titles,
@@ -144,15 +144,15 @@ export default async function TitlePage({
 
   return (
     <div className="space-y-5">
-      <header className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
+      <header className="flex flex-col-reverse gap-5 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <MediaTypeBadge type={title.mediaType} />
             {title.year && <Badge variant="secondary">{title.year}</Badge>}
             {title.status && <Badge variant="outline">{formatStatus(title.status)}</Badge>}
             {lib && <StatusBadge status={lib.status} />}
           </div>
-          <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-gradient sm:text-3xl">
             {title.primaryTitle}
           </h1>
           {title.englishTitle && title.englishTitle !== title.primaryTitle && (
@@ -197,6 +197,22 @@ export default async function TitlePage({
               {title.synopsis.slice(0, 400)}
               {title.synopsis.length > 400 ? "…" : ""}
             </p>
+          )}
+        </div>
+        <div className="shrink-0">
+          {title.coverUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={title.coverUrl}
+              alt={title.primaryTitle}
+              loading="eager"
+              referrerPolicy="no-referrer"
+              className="h-52 w-36 rounded-xl border shadow-lg transition-transform duration-300 hover:scale-[1.02] sm:h-60 sm:w-40"
+            />
+          ) : (
+            <span className="cover-fallback flex h-52 w-36 items-center justify-center rounded-xl border text-muted-foreground sm:h-60 sm:w-40">
+              <BookOpenText className="h-10 w-10" />
+            </span>
           )}
         </div>
       </header>

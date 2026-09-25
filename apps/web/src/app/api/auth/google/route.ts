@@ -1,13 +1,19 @@
 import { NextResponse } from "next/server";
-import { googleRedirectUri, setOAuthStateCookies, type OAuthMode } from "@/lib/oauth";
+import {
+  getOAuthBaseUrl,
+  googleRedirectUri,
+  setOAuthStateCookies,
+  type OAuthMode,
+} from "@/lib/oauth";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   const clientId = process.env.GOOGLE_CLIENT_ID;
+  const baseUrl = getOAuthBaseUrl(request, process.env.GOOGLE_REDIRECT_URI);
   if (!clientId) {
     return NextResponse.redirect(
-      new URL("/login?error=Google%20sign-in%20is%20not%20configured", request.url),
+      new URL("/login?error=Google%20sign-in%20is%20not%20configured", baseUrl),
     );
   }
 

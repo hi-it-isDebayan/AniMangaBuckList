@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
-import { Bell, BookOpen, BookOpenText, Flame, LibraryBig, Tags } from "lucide-react";
+import { Bell, BookOpen, BookOpenText, ExternalLink, Flame, LibraryBig, Tags } from "lucide-react";
 import { titles, userLibrary, userProgress, releaseEvents, notifications as notificationsTable } from "@ambl/database";
 import type { LibraryStatus } from "@ambl/types";
 import { requireUser } from "@/lib/auth";
@@ -105,23 +105,44 @@ export default async function DashboardPage() {
   ) as { genre: string; count: number }[];
 
   const hour = new Date().getHours();
+  const inProgress = continueRows.length;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {greetingForHour(hour)}
-            {user.displayName ? `, ${user.displayName}` : ""}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {continueRows.length > 0
-              ? "Pick up where you left off."
-              : "Your next read is waiting in your library."}
-          </p>
+      <section className="relative overflow-hidden rounded-2xl border bg-card p-6 sm:p-8">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 bg-brand-gradient opacity-[0.08]"
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-brand-gradient opacity-20 blur-3xl"
+        />
+        <div className="relative flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+              {greetingForHour(hour)}
+              {user.displayName ? (
+                <>
+                  , <span className="text-gradient">{user.displayName}</span>
+                </>
+              ) : null}
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {continueRows.length > 0
+                ? "Pick up where you left off."
+                : "Your next read is waiting in your library."}
+            </p>
+          </div>
+          <AddTitleDialog />
         </div>
-        <AddTitleDialog />
-      </div>
+        <dl className="relative mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <Stat label="Tracking" value={activeCount.length} />
+          <Stat label="In progress" value={inProgress} />
+          <Stat label="Recent releases" value={releases.length} />
+          <Stat label="Genres" value={genres.length} />
+        </dl>
+      </section>
 
       <section className="space-y-3">
         <div className="flex items-center justify-between">
@@ -154,69 +175,68 @@ export default async function DashboardPage() {
               const current = Math.max(opened ?? 0, completed ?? 0);
               return (
                 <li key={row.titleId}>
-                  <Card className="group relative h-full overflow-hidden">
+                  <div className="card-hover group relative flex h-full flex-col overflow-hidden rounded-xl border bg-card shadow-sm">
                     <span
                       className={cn(
-                        "absolute inset-x-0 top-0 h-1",
+                        "absolute inset-x-0 top-0 z-10 h-1",
                         statusAccentClass(row.status),
                       )}
                     />
-                    <CardContent className="flex h-full gap-3 p-4 pt-5">
+                    <Link
+                      href={`/title/${row.titleId}`}
+                      className="relative block shrink-0 overflow-hidden bg-muted"
+                    >
+                      {row.coverUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={row.coverUrl}
+                          alt={row.title}
+                          loading="lazy"
+                          referrerPolicy="no-referrer"
+                          className="aspect-[3/2] w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]"
+                        />
+                      ) : (
+                        <span className="cover-fallback flex aspect-[3/2] w-full items-center justify-center text-muted-foreground">
+                          <BookOpenText className="h-10 w-10" />
+                        </span>
+                      )}
+                      <span className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/55 via-black/0 to-white/5" />
+                      <span className="absolute bottom-2 left-2 rounded-md bg-black/55 px-2 py-0.5 text-[11px] font-semibold text-white backdrop-blur-sm">
+                        {unit === "EPISODE" ? "Episode" : "Chapter"} {current}
+                      </span>
+                    </Link>
+                    <div className="flex flex-1 flex-col gap-2 p-3">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <StatusBadge status={row.status} />
+                        <MediaTypeBadge type={row.mediaType} />
+                      </div>
                       <Link
                         href={`/title/${row.titleId}`}
-                        className="relative h-36 w-24 shrink-0 overflow-hidden rounded-md bg-muted"
+                        className="line-clamp-2 font-medium leading-snug group-hover:text-primary"
                       >
-                        {row.coverUrl ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={row.coverUrl}
-                            alt={row.title}
-                            loading="lazy"
-                            referrerPolicy="no-referrer"
-                            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                          />
-                        ) : (
-                          <span className="flex h-full w-full items-center justify-center text-muted-foreground">
-                            <BookOpenText className="h-7 w-7" />
-                          </span>
-                        )}
+                        {row.title}
                       </Link>
-                      <div className="flex min-w-0 flex-1 flex-col">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <StatusBadge status={row.status} />
-                          <MediaTypeBadge type={row.mediaType} />
-                        </div>
+                      <div className="mt-auto flex items-center gap-2 pt-1.5">
                         <Link
                           href={`/title/${row.titleId}`}
-                          className="mt-1.5 line-clamp-2 font-medium leading-snug hover:text-primary"
+                          className="inline-flex h-9 flex-1 items-center justify-center rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90"
                         >
-                          {row.title}
+                          Continue
                         </Link>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                          {unit === "EPISODE" ? "Episode" : "Chapter"} {current}
-                        </p>
-                        <div className="mt-auto flex items-center gap-2 pt-3">
-                          <Link
-                            href={`/title/${row.titleId}`}
-                            className="inline-flex h-9 flex-1 items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90"
+                        {row.lastSourceUrl && (
+                          <a
+                            href={row.lastSourceUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            title="Open source"
+                            className="inline-flex h-9 items-center justify-center rounded-lg border border-input px-2.5 text-sm hover:bg-accent"
                           >
-                            Continue
-                          </Link>
-                          {row.lastSourceUrl && (
-                            <a
-                              href={row.lastSourceUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              title="Open source"
-                              className="inline-flex h-9 items-center justify-center rounded-md border border-input px-3 text-sm hover:bg-accent"
-                            >
-                              Source
-                            </a>
-                          )}
-                        </div>
+                            <ExternalLink className="h-4 w-4" />
+                          </a>
+                        )}
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
                 </li>
               );
             })}
@@ -314,6 +334,17 @@ export default async function DashboardPage() {
           </Link>
         </p>
       </section>
+    </div>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-xl border bg-background/60 px-4 py-3">
+      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        {label}
+      </dt>
+      <dd className="mt-0.5 text-2xl font-semibold tabular-nums text-gradient">{value}</dd>
     </div>
   );
 }

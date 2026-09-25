@@ -170,6 +170,27 @@ export default async function LibraryPage({
     return `/library?${params.toString()}`;
   };
 
+  const buildTypeHref = (type: string) => {
+    const params = new URLSearchParams();
+    if (status !== "ALL") params.set("status", status);
+    if (type) params.set("type", type);
+    if (tag) params.set("tag", tag);
+    if (genre) params.set("genre", genre);
+    if (sort !== "updated") params.set("sort", sort);
+    if (q) params.set("q", q);
+    return `/library?${params.toString()}`;
+  };
+
+  const MEDIA_TABS: { key: string; label: string }[] = [
+    { key: "", label: "All" },
+    { key: "ANIME", label: "Anime" },
+    { key: "MANGA", label: "Manga" },
+    { key: "MANHWA", label: "Manhwa" },
+    { key: "MANHUA", label: "Manhua" },
+    { key: "LIGHT_NOVEL", label: "Light Novel" },
+    { key: "WEB_NOVEL", label: "Web Novel" },
+  ];
+
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
@@ -184,6 +205,24 @@ export default async function LibraryPage({
         sort={sort}
         query={q}
       />
+
+      <div className="flex w-full items-center gap-1 overflow-x-auto rounded-xl border bg-card p-1 shadow-sm">
+        {MEDIA_TABS.map((tab) => (
+          <Link
+            key={tab.key || "all"}
+            href={buildTypeHref(tab.key)}
+            scroll={false}
+            className={cn(
+              "flex-1 whitespace-nowrap rounded-lg px-3 py-1.5 text-center text-sm font-medium transition-colors",
+              mediaType === tab.key
+                ? "bg-brand-gradient text-white shadow-sm"
+                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+            )}
+          >
+            {tab.label}
+          </Link>
+        ))}
+      </div>
 
       {genreCounts.length > 0 && (
         <div className="-mx-1 flex items-center gap-1.5 overflow-x-auto px-1 pb-1">
@@ -236,11 +275,11 @@ export default async function LibraryPage({
           action={status === "ALL" && !q && !mediaType && !tag ? <AddTitleDialog /> : undefined}
         />
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {rows.map((row) => (
-            <LibraryItemCard key={row.titleId} item={row} />
-          ))}
-        </div>
+<div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+        {rows.map((row) => (
+          <LibraryItemCard key={row.titleId} item={row} />
+        ))}
+      </div>
       )}
 
       <Pagination page={currentPage} totalPages={totalPages} buildHref={buildHref} />
