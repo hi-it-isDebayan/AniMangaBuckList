@@ -41,9 +41,11 @@ jobs:
           rm -f ../animanga-tracker-extension.zip
           zip -r ../animanga-tracker-extension.zip . -x ".*"
 
-      - name: Locate APK
+      - name: Locate and rename APK
         id: apk
-        run: echo "apk=$(ls mobile/android/app/build/outputs/apk/release/*.apk)" >> "$GITHUB_OUTPUT"
+        run: |
+          cp mobile/android/app/build/outputs/apk/release/app-release-unsigned.apk mobile/android/app/build/outputs/apk/release/animanga-tracker.apk
+          echo "apk=mobile/android/app/build/outputs/apk/release/animanga-tracker.apk" >> "$GITHUB_OUTPUT"
 
       - name: Create or update release
         uses: softprops/action-gh-release@v2
