@@ -41,6 +41,7 @@ export default async function SettingsPage({
       name: publicApiKeys.name,
       lastFour: publicApiKeys.lastFour,
       createdAt: publicApiKeys.createdAt,
+      lastUsedAt: publicApiKeys.lastUsedAt,
     })
     .from(publicApiKeys)
     .where(eq(publicApiKeys.userId, user.id));
@@ -87,7 +88,11 @@ export default async function SettingsPage({
         </CardHeader>
         <CardContent>
           <ApiKeyManager
-            keys={apiKeys.map((k) => ({ ...k, createdAt: k.createdAt.toISOString() }))}
+            keys={apiKeys.map((k) => ({
+              ...k,
+              createdAt: k.createdAt.toISOString(),
+              lastUsedAt: k.lastUsedAt ? k.lastUsedAt.toISOString() : null,
+            }))}
           />
         </CardContent>
       </Card>

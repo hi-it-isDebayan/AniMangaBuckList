@@ -14,7 +14,17 @@ function renderConfig(c) {
   $("#enabled").checked = !!c.enabled;
   $("#apiKey").value = c.apiKey;
   $("#baseUrl").value = c.baseUrl;
-  $("#status").textContent = c.apiKey ? "Key stored" : "No key yet";
+  $("#status").textContent = keyLabel(c.apiKey);
+}
+
+function maskKey(k) {
+  if (!k) return "";
+  if (k.length <= 6) return k[0] + "***";
+  return k.slice(0, 5) + "\u2026" + k.slice(-4) + " (" + k.length + " chars)";
+}
+
+function keyLabel(k) {
+  return k ? "Stored: " + maskKey(k) + " \u2014 click Test after saving changes" : "No key yet";
 }
 
 function save() {
@@ -33,9 +43,16 @@ function save() {
 
 function testExtension() {
   $("#status").textContent = "Testing...";
-  chrome.runtime.sendMessage({ type: "TEST_EXTENSION" }, (res) => {
-    $("#status").textContent = (res && res.detail) || "No response from background";
-    loadLog();
+  const payload = {
+    baseUrl: $("#baseUrl").value.trim().replace(/\/+$/, ""),
+    apiKey: $("#apiKey").value.trim(),
+    enabled: $("#enabled").checked
+  };
+  chrome.runtime.sendMessage({ type: "SET_CONFIG", payload: payload }, () => {
+    chrome.runtime.sendMessage({ type: "TEST_EXTENSION" }, (res) => {
+      $("#status").textContent = (res && res.detail) || "No response from background";
+      loadLog();
+    });
   });
 }
 

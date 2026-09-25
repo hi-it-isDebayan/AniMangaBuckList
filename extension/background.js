@@ -132,25 +132,34 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       getLog((log) => sendResponse({ ok: true, log: log }));
       return true;
     case "TEST_EXTENSION":
-      apiFetch(
-        "/api/extension/resolve?q=" + encodeURIComponent("One Piece") + "&unit=CHAPTER",
-        { method: "GET" }
-      ).then((res) => {
-        let detail;
-        if (res.ok) {
-          const n = (res.data && res.data.candidates && res.data.candidates.length) || 0;
-          detail = "Connection OK \u2014 resolve returned " + n + " candidates";
-        } else if (res.error === "no-key") {
-          detail = "No API key set in the extension";
-        } else if (res.error === "network") {
-          detail = "Network error \u2014 check base URL or internet";
-        } else if (res.status === 401) {
-          detail = "HTTP 401 \u2014 wrong or missing API key";
-        } else {
-          detail = "Error: " + describeError(res.error);
-        }
-        addLog("TEST " + detail);
-        sendResponse({ ok: true, detail: detail });
+      getConfig((cfgSnapshot) => {
+        const baseUsed = (cfgSnapshot && cfgSnapshot.baseUrl) || "(none set)";
+        const keyLen = (cfgSnapshot && cfgSnapshot.apiKey && cfgSnapshot.apiKey.length) || 0;
+        apiFetch(
+          "/api/extension/resolve?q=" + encodeURIComponent("One Piece") + "&unit=CHAPTER",
+          { method: "GET" }
+        ).then((res) => {
+          let detail;
+          const via = "via " + baseUsed;
+          if (res.status === 401) {
+            detail = "HTTP 401 via " + baseUsed + " \u2014 API key rejected (saved key is "
+              + keyLen + " chars). Regenerate a key on the website and Save it.";
+          } else if (res.ok) {
+            const n = (res.data && res.data.candidates && res.data.candidates.length) || 0;
+            detail = "OK via " + baseUsed + " \u2014 resolve returned " + n + " candidates";
+          } else if (res.error === "no-key") {
+            detail = "No API key saved in the extension yet";
+          } else if (res.error === "network") {
+            detail = "Network error " + via + " \u2014 base URL wrong or no internet";
+          } else if (res.error === "disabled") {
+            detail = "Tracking is disabled (main switch is off)";
+          } else {
+            detail = via + " -> " + describeError(res.error)
+              + (res.status ? " (HTTP " + res.status + ")" : "");
+          }
+          addLog("TEST " + detail);
+          sendResponse({ ok: true, detail: detail });
+        });
       });
       return true;
     case "GET_PENDING":

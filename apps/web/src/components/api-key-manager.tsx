@@ -19,6 +19,7 @@ type ApiKeySummary = {
   name: string;
   lastFour: string;
   createdAt: string;
+  lastUsedAt: string | null;
 };
 
 export function ApiKeyManager({ keys }: { keys: ApiKeySummary[] }) {
@@ -113,6 +114,9 @@ function KeyRow(key: ApiKeySummary) {
         <p className="truncate text-sm font-medium">{key.name}</p>
         <p className="text-sm text-muted-foreground">
           ••••{key.lastFour} · created {new Date(key.createdAt).toLocaleDateString()}
+          {key.lastUsedAt
+            ? ` · last used ${new Date(key.lastUsedAt).toLocaleString()}`
+            : " · never used"}
         </p>
         {state?.error && <p className="text-sm text-destructive">{state.error}</p>}
       </div>
