@@ -21,3 +21,6 @@ npm-debug.log*
 
 .drizzle/
 .neon
+
+mobile/android/local.properties
+
