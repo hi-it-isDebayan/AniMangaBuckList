@@ -1,5 +1,19 @@
 const LAST_URL_KEY = "ambl-last-url";
 
+function safeGet(k) {
+  try {
+    return localStorage.getItem(k);
+  } catch (e) {
+    return null;
+  }
+}
+
+function safeSet(k, v) {
+  try {
+    localStorage.setItem(k, v);
+  } catch (e) {}
+}
+
 function getEnabled(cb) {
   chrome.storage.local.get({ enabled: true }, (cfg) => cb(!!cfg.enabled));
 }
@@ -94,7 +108,47 @@ function extractUnitValue() {
     const h1Match = extractFromString(h1.textContent);
     if (h1Match) return h1Match;
   }
+  const domMatch = findNumberInDom();
+  if (domMatch) return domMatch;
+  if (bodyScanCache.url !== url) {
+    bodyScanCache = { url: url, result: scanBodyText() };
+  }
+  return bodyScanCache.result;
+}
+
+let bodyScanCache = { url: null, result: null };
+
+function findNumberInDom() {
+  const sel = [
+    "h1", "h2", "h3", "h4",
+    "[class*=chapter]", "[id*=chapter]",
+    "[class*=episode]", "[id*=episode]",
+    "[class*=chap-]", ".current", ".active",
+    "[class*=nav] span", "[class*=nav] a",
+    "a[href*=chapter]", "a[href*=episode]",
+    "select option"
+  ].join(",");
+  let nodes = [];
+  try { nodes = document.querySelectorAll(sel); } catch (e) {}
+  for (const n of nodes) {
+    const t = (n.textContent || "").replace(/\s+/g, " ").trim();
+    if (t && t.length < 120) {
+      const r = extractFromString(t);
+      if (r) return r;
+    }
+  }
   return null;
+}
+
+function scanBodyText() {
+  try {
+    const body = document.body;
+    if (!body) return null;
+    const text = (body.innerText || "").slice(0, 12000);
+    return extractFromString(text);
+  } catch (e) {
+    return null;
+  }
 }
 
 function pickBestTitle(candidates) {
@@ -151,25 +205,30 @@ function tick() {
     if (!enabled) return;
     const host = location.hostname;
     if (SKIP_HOSTS.has(host)) return;
-
-    const candidates = pickBestTitle(collectTextCandidates());
-    const uv = extractUnitValue();
-    if (!uv || !uv.value || uv.value <= 0) {
-      const nowUrl = location.href;
-      if (localStorage.getItem("ambl-last-skip-url") !== nowUrl) {
-        localStorage.setItem("ambl-last-skip-url", nowUrl);
-        logEvent("SKIP " + host + ": no chapter/episode number found in title/h1/url");
+    try {
+      const candidates = pickBestTitle(collectTextCandidates());
+      const uv = extractUnitValue();
+      if (!uv || !uv.value || uv.value <= 0) {
+        const nowUrl = location.href;
+        if (safeGet("ambl-last-skip-url") !== nowUrl) {
+          safeSet("ambl-last-skip-url", nowUrl);
+          logEvent("SKIP " + host + ": no chapter/episode number found in title/h1/url");
+        }
+        return;
       }
-      return;
+
+      const urlKey = location.href;
+      if (urlKey === safeGet(LAST_URL_KEY)) return;
+      safeSet(LAST_URL_KEY, urlKey);
+
+      const title = candidates[0] || "Untitled";
+      logEvent("DETECT " + title + " " + uv.unit + " " + uv.value + " @ " + host);
+      sendProgress({ title: title, ...uv }, candidates);
+    } catch (err) {
+      try {
+        logEvent("ERR " + host + ": " + ((err && err.message) ? err.message : String(err)));
+      } catch (e2) {}
     }
-
-    const urlKey = location.href;
-    if (urlKey === localStorage.getItem(LAST_URL_KEY)) return;
-    localStorage.setItem(LAST_URL_KEY, urlKey);
-
-    const title = candidates[0] || "Untitled";
-    logEvent("DETECT " + title + " " + uv.unit + " " + uv.value + " @ " + host);
-    sendProgress({ title: title, ...uv }, candidates);
   });
 }
 
