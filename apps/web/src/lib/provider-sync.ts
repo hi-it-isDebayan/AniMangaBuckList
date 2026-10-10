@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { providerEntries } from "@ambl/database";
 import { getDb } from "@/lib/db";
 import {
@@ -56,12 +56,23 @@ async function replaceEntries(userId: string, provider: TokenProvider, entries: 
           status: e.status,
         })),
       )
-      .onConflictDoNothing({
+      .onConflictDoUpdate({
         target: [
           providerEntries.userId,
           providerEntries.provider,
           providerEntries.externalId,
         ],
+        set: {
+          anilistId: sql`excluded.anilist_id`,
+          malId: sql`excluded.mal_id`,
+          mediaType: sql`excluded.media_type`,
+          title: sql`excluded.title`,
+          coverUrl: sql`excluded.cover_url`,
+          progressValue: sql`excluded.progress_value`,
+          progressUnit: sql`excluded.progress_unit`,
+          status: sql`excluded.status`,
+          updatedAt: new Date(),
+        },
       });
   });
 }
@@ -123,15 +134,20 @@ async function malListPage(
   offset: number,
 ) {
   const fields = "list_status,node{id,title,main_picture,media_type}";
-  const res = await fetch(
-    `https://api.myanimelist.net/v2/users/@me/${path}?fields=${fields}&limit=100&offset=${offset}`,
-    {
-      headers: { Authorization: `Bearer ${accessToken}` },
-      cache: "no-store",
-    },
-  );
-  if (!res.ok) return { status: res.status, data: null };
-  return { status: res.status, data: (await res.json()) as Record<string, unknown> };
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const res = await fetch(
+      `https://api.myanimelist.net/v2/users/@me/${path}?fields=${fields}&limit=100&offset=${offset}`,
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        cache: "no-store",
+      },
+    );
+    if (res.ok) return { status: res.status, data: (await res.json()) as Record<string, unknown> };
+    if (res.status < 500 && res.status !== 429) {
+      return { status: res.status, data: null };
+    }
+  }
+  return { status: 429, data: null };
 }
 
 async function syncMal(userId: string): Promise<number> {
@@ -140,6 +156,7 @@ async function syncMal(userId: string): Promise<number> {
 
   const entries: ListEntry[] = [];
   let accessToken = tokens.accessToken;
+  let sawSuccess = false;
 
   const lists: Array<"animelist" | "mangalist"> = ["animelist", "mangalist"];
   for (const path of lists) {
@@ -156,6 +173,7 @@ async function syncMal(userId: string): Promise<number> {
         }
       }
       if (result.status !== 200 || !result.data) break;
+      sawSuccess = true;
 
       const data = result.data as {
         data: {
@@ -200,6 +218,7 @@ async function syncMal(userId: string): Promise<number> {
     }
   }
 
+  if (!sawSuccess) return 0;
   await replaceEntries(userId, "mal", entries);
   return entries.length;
 }
@@ -230,18 +249,23 @@ function mangabakaApiKey(): string | null {
 }
 
 async function mangabakaLibraryPage(accessToken: string, page: number) {
-  const res = await fetch(
-    `https://api.mangabaka.org/v1/my/library?limit=100&page=${page}`,
-    {
-      headers: {
-        "x-api-key": accessToken,
-        "Accept": "application/json",
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const res = await fetch(
+      `https://api.mangabaka.org/v1/my/library?limit=100&page=${page}`,
+      {
+        headers: {
+          "x-api-key": accessToken,
+          "Accept": "application/json",
+        },
+        cache: "no-store",
       },
-      cache: "no-store",
-    },
-  );
-  if (!res.ok) return { status: res.status, data: null };
-  return { status: res.status, data: (await res.json()) as Record<string, unknown> };
+    );
+    if (res.ok) return { status: res.status, data: (await res.json()) as Record<string, unknown> };
+    if (res.status < 500 && res.status !== 429) {
+      return { status: res.status, data: null };
+    }
+  }
+  return { status: 429, data: null };
 }
 
 async function syncMangabaka(userId: string): Promise<number> {
@@ -249,9 +273,11 @@ async function syncMangabaka(userId: string): Promise<number> {
   if (!apiKey) return 0;
 
   const entries: ListEntry[] = [];
+  let sawSuccess = false;
   for (let page = 1; page <= 100; page += 1) {
     const result = await mangabakaLibraryPage(apiKey, page);
     if (result.status !== 200 || !result.data) break;
+    sawSuccess = true;
 
     const data = result.data as {
       data?: MangabakaLibraryItem[];
@@ -279,6 +305,7 @@ async function syncMangabaka(userId: string): Promise<number> {
     if (!data.pagination?.next) break;
   }
 
+  if (!sawSuccess) return 0;
   await replaceEntries(userId, "mangabaka", entries);
   return entries.length;
 }
