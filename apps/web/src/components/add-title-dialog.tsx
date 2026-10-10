@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Search, Loader2 } from "lucide-react";
+import { Plus, Search, Loader2, ImageOff } from "lucide-react";
 import type { LibraryStatus, MediaType, SearchResultItem } from "@ambl/types";
 import { addTitleAction } from "@/actions/library";
 import { Dialog } from "@/components/ui/dialog";
@@ -11,11 +11,17 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/empty-state";
+import { ProviderIcon } from "@/components/provider-icon";
+import { cn } from "@/lib/utils";
 import { defaultStatusForType, mediaTypeLabel, planStatusForType } from "@/lib/format";
 
 interface SearchItem extends SearchResultItem {
   titleId: string | null;
   inLibrary: boolean;
+}
+
+function itemKey(item: SearchItem) {
+  return `${item.malId ?? ""}-${item.anilistId ?? ""}-${item.title}`;
 }
 
 export function AddTitleDialog() {
@@ -25,7 +31,7 @@ export function AddTitleDialog() {
   const [items, setItems] = useState<SearchItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [pending, setPending] = useState<number | null>(null);
+  const [pendingKey, setPendingKey] = useState<string | null>(null);
   const router = useRouter();
   const abortRef = useRef<AbortController | null>(null);
 
@@ -68,13 +74,13 @@ export function AddTitleDialog() {
   }, [open, query, type, runSearch]);
 
   const add = async (item: SearchItem, status: LibraryStatus) => {
-    setPending(item.malId);
+    setPendingKey(itemKey(item));
     const res = await addTitleAction({
       malId: item.malId ?? 0,
       mediaType: item.mediaType as MediaType,
       status,
     });
-    setPending(null);
+    setPendingKey(null);
     if (res.ok && res.data?.titleId) {
       setOpen(false);
       router.refresh();
@@ -100,7 +106,7 @@ export function AddTitleDialog() {
             <Input
               autoFocus
               className="pl-9"
-              placeholder="Search MyAnimeList…"
+              placeholder="Search MyAnimeList, AniList, MangaBaka…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => {
@@ -118,7 +124,12 @@ export function AddTitleDialog() {
           </Select>
         </div>
 
-        <div className="mt-4 max-h-80 space-y-2 overflow-y-auto pr-1">
+        <p className="mt-3 text-xs text-muted-foreground">
+          Tap any result to add it straight to your library. Cover shows your latest progress from connected
+          trackers.
+        </p>
+
+        <div className="mt-3 max-h-80 space-y-2 overflow-y-auto pr-1">
           {loading && (
             <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -134,57 +145,94 @@ export function AddTitleDialog() {
             <EmptyState title="No results" description={`Nothing found for “${query}”. Try a different title.`} />
           )}
           {!loading &&
-            items.map((item) => (
-              <div
-                key={item.malId}
-                className="flex items-center justify-between gap-3 rounded-md border p-3"
-              >
-                <div className="min-w-0">
-                  <p className="truncate font-medium">{item.title}</p>
-                  {item.englishTitle && item.englishTitle !== item.title && (
-                    <p className="truncate text-sm text-muted-foreground">
-                      {item.englishTitle}
-                    </p>
+            items.map((item) => {
+              const key = itemKey(item);
+              const busy = pendingKey !== null;
+              const addingThis = pendingKey === key;
+              const progress = item.providerProgress;
+              return (
+                <div
+                  key={key}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => {
+                    if (!busy && !item.inLibrary) void add(item, defaultStatusForType(item.mediaType));
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !busy && !item.inLibrary) {
+                      void add(item, defaultStatusForType(item.mediaType));
+                    }
+                  }}
+                  className={cn(
+                    "flex cursor-pointer items-center gap-3 rounded-md border p-2.5 transition-colors",
+                    !item.inLibrary && "hover:bg-accent/50 focus-visible:bg-accent/50",
                   )}
-                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                    <Badge variant="outline">{mediaTypeLabel(item.mediaType)}</Badge>
-                    {item.year && <Badge variant="secondary">{item.year}</Badge>}
-                    {item.episodeCount != null && (
-                      <Badge variant="secondary">{item.episodeCount} eps</Badge>
+                >
+                  {item.coverUrl ? (
+                    <img
+                      src={item.coverUrl}
+                      alt=""
+                      className="h-16 w-12 shrink-0 rounded-sm object-cover"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="flex h-16 w-12 shrink-0 items-center justify-center rounded-sm bg-muted text-muted-foreground">
+                      <ImageOff className="h-4 w-4" />
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <p className="truncate font-medium">{item.title}</p>
+                      {progress && <ProviderIcon provider={progress.provider} title={`Tracked in ${progress.label}`} />}
+                    </div>
+                    {item.englishTitle && item.englishTitle !== item.title && (
+                      <p className="truncate text-sm text-muted-foreground">{item.englishTitle}</p>
                     )}
-                    {item.chapterCount != null && (
-                      <Badge variant="secondary">{item.chapterCount} ch</Badge>
-                    )}
-                    {item.volumeCount != null && (
-                      <Badge variant="secondary">{item.volumeCount} vol</Badge>
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                      <Badge variant="outline">{mediaTypeLabel(item.mediaType)}</Badge>
+                      {item.year && <Badge variant="secondary">{item.year}</Badge>}
+                      {item.episodeCount != null && <Badge variant="secondary">{item.episodeCount} eps</Badge>}
+                      {item.chapterCount != null && <Badge variant="secondary">{item.chapterCount} ch</Badge>}
+                      {item.volumeCount != null && <Badge variant="secondary">{item.volumeCount} vol</Badge>}
+                      {progress?.text && (
+                        <Badge className="bg-primary/15 text-primary">
+                          {progress.text}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1.5 self-center">
+                    {item.inLibrary ? (
+                      <Badge variant="secondary">In library</Badge>
+                    ) : (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={busy}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void add(item, planStatusForType(item.mediaType));
+                          }}
+                        >
+                          Plan to
+                        </Button>
+                        <Button
+                          size="sm"
+                          disabled={busy}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void add(item, defaultStatusForType(item.mediaType));
+                          }}
+                        >
+                          {addingThis ? "Adding…" : "Add"}
+                        </Button>
+                      </>
                     )}
                   </div>
                 </div>
-                <div className="flex shrink-0 items-center gap-1.5">
-                  {item.inLibrary ? (
-                    <Badge variant="secondary">In library</Badge>
-                  ) : (
-                    <>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={pending !== null}
-                        onClick={() => add(item, planStatusForType(item.mediaType))}
-                      >
-                        Plan to
-                      </Button>
-                      <Button
-                        size="sm"
-                        disabled={pending !== null}
-                        onClick={() => add(item, defaultStatusForType(item.mediaType))}
-                      >
-                        {pending === item.malId ? "Adding…" : "Add"}
-                      </Button>
-                    </>
-                  )}
-                </div>
-              </div>
-            ))}
+              );
+            })}
         </div>
       </Dialog>
     </>

@@ -1,15 +1,18 @@
 import type { MetadataProvider } from "./types";
 import { JikanProvider } from "./jikan";
 import { MALProvider } from "./mal";
+import { AniListProvider } from "./anilist";
 
 export type { MetadataProvider, SearchOptions } from "./types";
 export * from "./types";
 export { JikanProvider } from "./jikan";
 export { MALProvider, malAuthHeaders } from "./mal";
+export { AniListProvider } from "./anilist";
 
 export const providers = {
   jikan: new JikanProvider(),
   mal: new MALProvider(),
+  anilist: new AniListProvider(),
 } as const;
 
 export function getMetadataProvider(): MetadataProvider {

@@ -4,7 +4,7 @@ import { and, eq, or } from "drizzle-orm";
 import { userOauthAccounts, users } from "@ambl/database";
 import { getDb } from "@/lib/db";
 
-export type OAuthProvider = "mal" | "google";
+export type OAuthProvider = "mal" | "google" | "anilist";
 export type OAuthMode = "signin" | "link";
 
 const STATE_COOKIE = "ambl_oauth_state";
@@ -89,16 +89,22 @@ export function isOAuthConfigured(provider: OAuthProvider): boolean {
   if (provider === "mal") {
     return !!(process.env.MAL_CLIENT_ID && process.env.MAL_CLIENT_SECRET);
   }
+  if (provider === "anilist") {
+    return !!(process.env.ANILIST_CLIENT_ID && process.env.ANILIST_CLIENT_SECRET);
+  }
   return !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
 }
 
 function providerLabel(provider: OAuthProvider): string {
-  return provider === "google" ? "Google" : "MyAnimeList";
+  if (provider === "google") return "Google";
+  if (provider === "anilist") return "AniList";
+  return "MyAnimeList";
 }
 
 export interface OAuthIdentity {
   providerId: string;
   email?: string;
+  emailVerified?: boolean;
   displayName?: string;
   pictureUrl?: string;
 }
@@ -108,12 +114,15 @@ async function refreshUserProfile(
   provider: OAuthProvider,
   identity: OAuthIdentity,
 ): Promise<void> {
-  if (!identity.displayName && !identity.pictureUrl) return;
+  if (!identity.displayName && !identity.pictureUrl && !identity.emailVerified) return;
   await getDb()
     .update(users)
     .set({
       ...(identity.displayName ? { displayName: identity.displayName.slice(0, 120) } : {}),
       ...(identity.pictureUrl ? { avatarUrl: identity.pictureUrl } : {}),
+      ...(identity.emailVerified && identity.email
+        ? { emailVerifiedAt: new Date() }
+        : {}),
     })
     .where(eq(users.id, userId));
   await getDb()
@@ -187,6 +196,9 @@ export async function findOrCreateOAuthUser(
         .update(users)
         .set({
           ...(identity.pictureUrl ? { avatarUrl: identity.pictureUrl } : {}),
+          ...(identity.emailVerified && identity.email
+            ? { emailVerifiedAt: new Date() }
+            : {}),
           oauthProvider: provider,
           oauthId: identity.providerId,
         })
@@ -208,6 +220,9 @@ export async function findOrCreateOAuthUser(
       avatarUrl: identity.pictureUrl,
       oauthProvider: provider,
       oauthId: identity.providerId,
+      ...(identity.emailVerified && identity.email
+        ? { emailVerifiedAt: new Date() }
+        : {}),
     })
     .onConflictDoNothing({
       target: [users.email],
@@ -284,6 +299,9 @@ export async function linkOAuthAccount(
     .update(users)
     .set({
       ...(identity.pictureUrl ? { avatarUrl: identity.pictureUrl } : {}),
+      ...(identity.emailVerified && identity.email
+        ? { emailVerifiedAt: new Date() }
+        : {}),
       oauthProvider: provider,
       oauthId: identity.providerId,
     })
@@ -296,4 +314,11 @@ export function malRedirectUri(request: Request): string {
 
 export function googleRedirectUri(request: Request): string {
   return process.env.GOOGLE_REDIRECT_URI ?? `${getRequestBaseUrl(request)}/api/auth/google/callback`;
+}
+
+export function anilistRedirectUri(request: Request): string {
+  return (
+    process.env.ANILIST_REDIRECT_URI ??
+    `${getRequestBaseUrl(request)}/api/auth/anilist/callback`
+  );
 }

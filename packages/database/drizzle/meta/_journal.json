@@ -57,6 +57,13 @@
       "when": 1791665204440,
       "tag": "0007_lowly_skin",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791671432456,
+      "tag": "0008_jittery_vertigo",
+      "breakpoints": true
     }
   ]
 }

@@ -3,7 +3,7 @@ import { AlertTriangle, KeyRound, Fingerprint, MonitorSmartphone } from "lucide-
 import { requireUser, listSessions, getCurrentSessionId } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { eq } from "drizzle-orm";
-import { publicApiKeys, userOauthAccounts, users } from "@ambl/database";
+import { publicApiKeys, userOauthAccounts, oauthTokens, users } from "@ambl/database";
 import { getCredentialsForUser } from "@/lib/passkeys";
 import { SettingsForm } from "@/components/settings-form";
 import { ConnectedAccounts } from "@/components/connected-accounts";
@@ -40,6 +40,12 @@ export default async function SettingsPage({
     .where(eq(userOauthAccounts.userId, user.id));
 
   const linkedProviders = new Set(authAccounts.map((a) => a.provider));
+
+  const trackerTokens = await db
+    .select({ provider: oauthTokens.provider })
+    .from(oauthTokens)
+    .where(eq(oauthTokens.userId, user.id));
+  const trackedProviders = new Set(trackerTokens.map((t) => t.provider));
 
   const apiKeys = await db
     .select({
@@ -143,6 +149,11 @@ createdAt: s.createdAt.toISOString(),
         <CardContent>
           <ConnectedAccounts
             linkedGoogle={linkedProviders.has("google")}
+            linkedMal={linkedProviders.has("mal")}
+            linkedAnilist={linkedProviders.has("anilist")}
+            trackedMal={trackedProviders.has("mal")}
+            trackedAnilist={trackedProviders.has("anilist")}
+            mangabakaConnected={trackedProviders.has("mangabaka")}
             hasPassword={hasPassword}
           />
         </CardContent>

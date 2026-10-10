@@ -22,7 +22,7 @@ import {
   recordAttempt,
   tokenKey,
 } from "@/lib/rate-limit";
-import { sendMail } from "@/lib/mail";
+import { mailConfigured, sendMail } from "@/lib/mail";
 import { publicBaseUrl } from "@/lib/url";
 
 const nameSchema = z.string().trim().min(1, "Name is required.").max(120);
@@ -226,10 +226,18 @@ export async function resendVerificationAction(): Promise<AuthState> {
   const user = await requireUser();
   if (user.emailVerifiedAt) return { success: true };
 
+  if (!mailConfigured()) {
+    return {
+      error:
+        "Email service isn't configured yet. Set RESEND_API_KEY and MAIL_FROM, then try again.",
+    };
+  }
+
   const { raw } = await issueAuthToken(user.id, "email_verify", 24 * 60 * 60 * 1000);
   const link = `${publicBaseUrl()}/verify-email?token=${raw}`;
+  let sent = false;
   try {
-    await sendMail({
+    sent = await sendMail({
       to: user.email,
       subject: "Verify your AniManga BuckList email",
       html: `<p>Hi ${escapeHtml(user.displayName || "there")},</p><p><a href="${link}">Verify your email</a></p><p>This link expires in 24 hours.</p>`,
@@ -237,6 +245,9 @@ export async function resendVerificationAction(): Promise<AuthState> {
     });
   } catch (err) {
     console.error("Verification email failed to send.", err);
+  }
+  if (!sent) {
+    return { error: "Could not send the verification email. Please try again." };
   }
   return { success: true };
 }

@@ -95,6 +95,7 @@ export async function GET(request: Request) {
     const identity = {
       providerId: info.sub,
       email: info.email,
+      emailVerified: true,
       displayName: info.name,
       pictureUrl: picture,
     };

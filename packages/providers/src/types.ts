@@ -6,7 +6,7 @@ export interface SearchOptions {
 }
 
 export interface MetadataProvider {
-  readonly name: "jikan" | "mal";
+  readonly name: "jikan" | "mal" | "anilist";
   search(query: string, options?: SearchOptions): Promise<SearchResultItem[]>;
   getById(malId: number, mediaType: MediaType): Promise<SearchResultItem | null>;
   getRelations(malId: number, mediaType: MediaType): Promise<MediaRelation[]>;

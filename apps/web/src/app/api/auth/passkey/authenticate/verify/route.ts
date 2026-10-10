@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
     }
 
     const newCounter = verification.authenticationInfo.newCounter;
-    if (newCounter <= credential.counter) {
+    if (newCounter > 0 && newCounter <= credential.counter) {
       return NextResponse.json(
         { ok: false, error: "Passkey reuse detected. Try again." },
         { status: 400 },

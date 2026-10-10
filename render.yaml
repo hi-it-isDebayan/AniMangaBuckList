@@ -20,6 +20,12 @@ services:
         sync: false
       - key: MAL_CLIENT_SECRET
         sync: false
+      - key: ANILIST_CLIENT_ID
+        sync: false
+      - key: ANILIST_CLIENT_SECRET
+        sync: false
+      - key: ANILIST_REDIRECT_URI
+        sync: false
       - key: SESSION_TTL_HOURS
         value: "720"
       - key: RESEND_API_KEY

@@ -6,6 +6,8 @@ import { revalidatePath } from "next/cache";
 import { userOauthAccounts, users } from "@ambl/database";
 import { getDb } from "@/lib/db";
 import { hashPassword, requireUser, verifyPassword, getCurrentSessionId, revokeOtherSessionRows } from "@/lib/auth";
+import { deleteProviderTokens } from "@/lib/provider-tokens";
+import { deleteProviderRows } from "@/lib/provider-sync";
 
 export interface OAuthActionState {
   error?: string;
@@ -15,12 +17,12 @@ export interface OAuthActionState {
 export interface UnlinkResult {
   ok: boolean;
   error?: string;
-  data?: { provider: "mal" | "google" };
+  data?: { provider: "mal" | "google" | "anilist" };
 }
 
-const providerSchema = z.enum(["mal", "google"]);
+const providerSchema = z.enum(["mal", "google", "anilist"]);
 
-export async function unlinkProviderAction(input: { provider: "mal" | "google" }): Promise<UnlinkResult> {
+export async function unlinkProviderAction(input: { provider: "mal" | "google" | "anilist" }): Promise<UnlinkResult> {
   const user = await requireUser();
   const provider = providerSchema.safeParse(input.provider);
   if (!provider.success) return { ok: false, error: "Invalid provider." };
@@ -65,6 +67,13 @@ export async function unlinkProviderAction(input: { provider: "mal" | "google" }
         eq(userOauthAccounts.provider, provider.data),
       ),
     );
+
+  if (provider.data === "mal" || provider.data === "anilist") {
+    await Promise.all([
+      deleteProviderTokens(user.id, provider.data),
+      deleteProviderRows(user.id, provider.data),
+    ]);
+  }
 
   const patch: Partial<typeof users.$inferInsert> = {};
   if (user.oauthProvider === provider.data) {

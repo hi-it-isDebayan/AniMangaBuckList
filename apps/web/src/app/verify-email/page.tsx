@@ -8,6 +8,7 @@ import { createSession, getCurrentUser } from "@/lib/auth";
 import { consumeAuthToken } from "@/lib/tokens";
 import { Card, CardContent } from "@/components/ui/card";
 import { ResendVerifyButton } from "@/components/resend-verify-button";
+import { mailConfigured } from "@/lib/mail";
 
 export const dynamic = "force-dynamic";
 
@@ -79,6 +80,12 @@ export default async function VerifyEmailPage({
                   We sent a verification link{user ? ` to ${user.email}` : ""}. It expires in 24
                   hours.
                 </p>
+                {!mailConfigured() && (
+                  <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-600 dark:text-amber-300">
+                    Heads up: the email service isn&apos;t configured yet (set RESEND_API_KEY
+                    and MAIL_FROM), so no email was actually sent.
+                  </p>
+                )}
               </div>
               {user ? (
                 <ResendVerifyButton />

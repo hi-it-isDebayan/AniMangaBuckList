@@ -129,6 +129,7 @@ function toItem(node: MalNode, isAnime: boolean): SearchResultItem {
   const season = node.start_season?.season ?? null;
   return {
     malId: node.id,
+    anilistId: null,
     title: node.title,
     englishTitle: alternatives?.en ?? null,
     japaneseTitle: alternatives?.ja ?? null,

@@ -138,6 +138,65 @@ export const userOauthAccounts = pgTable(
   ],
 );
 
+export const oauthTokens = pgTable(
+  "oauth_tokens",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    provider: varchar("provider", { length: 20 }).notNull(),
+    accessToken: text("access_token").notNull(),
+    refreshToken: text("refresh_token"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    scopes: text("scopes"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("oauth_tokens_user_provider_uq").on(t.userId, t.provider),
+    index("oauth_tokens_user_idx").on(t.userId),
+  ],
+);
+
+export const providerEntries = pgTable(
+  "provider_entries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    provider: varchar("provider", { length: 20 }).notNull(),
+    externalId: varchar("external_id", { length: 255 }).notNull(),
+    anilistId: integer("anilist_id"),
+    malId: integer("mal_id"),
+    mediaType: mediaTypeEnum("media_type"),
+    title: text("title").notNull(),
+    coverUrl: text("cover_url"),
+    progressValue: integer("progress_value"),
+    progressUnit: progressUnitEnum("progress_unit"),
+    status: varchar("status", { length: 32 }),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("provider_entries_user_provider_external_uq").on(
+      t.userId,
+      t.provider,
+      t.externalId,
+    ),
+    index("provider_entries_user_idx").on(t.userId),
+    index("provider_entries_provider_external_idx").on(t.provider, t.externalId),
+    index("provider_entries_anilist_idx").on(t.anilistId),
+    index("provider_entries_mal_idx").on(t.malId),
+  ],
+);
+
 export const sessions = pgTable(
   "sessions",
   {
@@ -684,6 +743,8 @@ export const aiConversations = pgTable(
 export const usersRelations = relations(users, ({ many }) => ({
   sessions: many(sessions),
   oauthAccounts: many(userOauthAccounts),
+  oauthTokens: many(oauthTokens),
+  providerEntries: many(providerEntries),
   library: many(userLibrary),
   progress: many(userProgress),
   progressHistory: many(progressHistory),
@@ -696,6 +757,14 @@ export const usersRelations = relations(users, ({ many }) => ({
 
 export const userOauthAccountsRelations = relations(userOauthAccounts, ({ one }) => ({
   user: one(users, { fields: [userOauthAccounts.userId], references: [users.id] }),
+}));
+
+export const oauthTokensRelations = relations(oauthTokens, ({ one }) => ({
+  user: one(users, { fields: [oauthTokens.userId], references: [users.id] }),
+}));
+
+export const providerEntriesRelations = relations(providerEntries, ({ one }) => ({
+  user: one(users, { fields: [providerEntries.userId], references: [users.id] }),
 }));
 
 export const titlesRelations = relations(titles, ({ many }) => ({

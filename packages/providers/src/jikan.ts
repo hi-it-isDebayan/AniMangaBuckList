@@ -220,6 +220,7 @@ function toItem(e: JikanAnimeEntry | JikanMangaEntry): SearchResultItem | null {
   const mediaType = mapMediaType(e.type);
   return {
     malId: e.mal_id,
+    anilistId: null,
     title: e.title,
     englishTitle: e.title_english ?? null,
     japaneseTitle: e.title_japanese ?? null,

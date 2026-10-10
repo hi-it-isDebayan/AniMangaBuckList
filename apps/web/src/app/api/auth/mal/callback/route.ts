@@ -7,6 +7,8 @@ import {
   linkOAuthAccount,
   malRedirectUri,
 } from "@/lib/oauth";
+import { saveProviderTokens } from "@/lib/provider-tokens";
+import { syncProviderEntries } from "@/lib/provider-sync";
 
 export const dynamic = "force-dynamic";
 
@@ -57,6 +59,7 @@ export async function GET(request: Request) {
     const token = (await tokenRes.json()) as {
       access_token: string;
       refresh_token?: string;
+      expires_in?: number;
     };
 
     const meRes = await fetch("https://api.myanimelist.net/v2/users/@me?fields=id,name,picture", {
@@ -87,6 +90,12 @@ export async function GET(request: Request) {
       }
       try {
         await linkOAuthAccount(user.id, "mal", identity);
+        await saveProviderTokens(user.id, "mal", {
+          accessToken: token.access_token,
+          refreshToken: token.refresh_token ?? null,
+          expiresAt: token.expires_in ? new Date(Date.now() + token.expires_in * 1000) : null,
+        });
+        await syncProviderEntries(user.id, "mal");
       } catch (err) {
         return NextResponse.redirect(
           new URL(`/settings?error=${encodeURIComponent((err as Error).message)}`, baseUrl),
@@ -97,6 +106,12 @@ export async function GET(request: Request) {
 
     const userId = await findOrCreateOAuthUser("mal", identity);
     await createSession(userId);
+    await saveProviderTokens(userId, "mal", {
+      accessToken: token.access_token,
+      refreshToken: token.refresh_token ?? null,
+      expiresAt: token.expires_in ? new Date(Date.now() + token.expires_in * 1000) : null,
+    });
+    await syncProviderEntries(userId, "mal");
     return NextResponse.redirect(new URL("/", baseUrl));
   } catch {
     return NextResponse.redirect(

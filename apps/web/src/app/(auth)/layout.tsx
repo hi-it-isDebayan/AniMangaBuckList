@@ -23,6 +23,11 @@ async function AuthedGate({ children }: { children: React.ReactNode }) {
     <main className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-muted/40 p-6">
       <div
         aria-hidden="true"
+        className="absolute inset-0 bg-[url('/login-bg.png')] bg-cover bg-center"
+      />
+      <div aria-hidden="true" className="absolute inset-0 bg-background/70 backdrop-blur-sm" />
+      <div
+        aria-hidden="true"
         className="pointer-events-none absolute -top-40 left-1/2 h-80 w-80 -translate-x-1/2 rounded-full bg-brand-gradient opacity-20 blur-3xl"
       />
       <div className="relative w-full max-w-sm">

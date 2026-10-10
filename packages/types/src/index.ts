@@ -49,8 +49,20 @@ export interface UserPreferences {
   };
 }
 
+export type TrackerProvider = "mal" | "anilist" | "mangabaka";
+
+export interface ProviderProgressBadge {
+  provider: TrackerProvider;
+  label: string;
+  unit: "CHAPTER" | "EPISODE";
+  value: number | null;
+  text: string | null;
+  status: string | null;
+}
+
 export interface SearchResultItem {
   malId: number | null;
+  anilistId: number | null;
   title: string;
   englishTitle: string | null;
   japaneseTitle: string | null;
@@ -68,6 +80,7 @@ export interface SearchResultItem {
   coverUrl: string | null;
   score: number | null;
   genres: string[];
+  providerProgress?: ProviderProgressBadge | null;
 }
 
 export interface MediaRelation {
