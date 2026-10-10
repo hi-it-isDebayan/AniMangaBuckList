@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 const items = [
   { href: "/", label: "Home" },
   { href: "/library", label: "Library" },
+  { href: "/history", label: "History" },
 ];
 
 export function AppNav() {

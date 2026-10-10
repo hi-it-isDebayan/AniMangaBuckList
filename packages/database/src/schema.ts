@@ -259,6 +259,46 @@ export const publicApiKeys = pgTable(
   ],
 );
 
+export const browseHistory = pgTable(
+  "browse_history",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    url: text("url").notNull(),
+    title: text("title"),
+    site: varchar("site", { length: 128 }),
+    malId: integer("mal_id"),
+    mediaType: varchar("media_type", { length: 10 }),
+    coverUrl: text("cover_url"),
+    unit: varchar("unit", { length: 8 }).notNull().default("CHAPTER"),
+    value: integer("value").notNull().default(1),
+    visitedAt: timestamp("visited_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("browse_history_user_visited_idx").on(t.userId, t.visitedAt),
+    index("browse_history_visited_idx").on(t.visitedAt),
+  ],
+);
+
+export const deviceHeartbeats = pgTable(
+  "device_heartbeats",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    apiKeyId: uuid("api_key_id")
+      .notNull()
+      .references(() => publicApiKeys.id, { onDelete: "cascade" }),
+    platform: varchar("platform", { length: 20 }).notNull(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull(),
+  },
+  (t) => [
+    uniqueIndex("device_heartbeats_key_platform_uq").on(t.apiKeyId, t.platform),
+  ],
+);
+
 export const titles = pgTable(
   "titles",
   {
