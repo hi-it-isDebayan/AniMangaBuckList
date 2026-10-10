@@ -33,6 +33,7 @@ function getEnabled(cb) {
 
 const SKIP_HOSTS = new Set([
   "animanga.debayandas.in",
+  "hyphen-paragraph-flight.ngrok-free.dev",
   "chrome.google.com",
   "chrome",
   "newtab",

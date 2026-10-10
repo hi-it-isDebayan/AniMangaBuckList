@@ -9,13 +9,13 @@ function showMismatchWarn() {
     const div = document.createElement("div");
     div.className = "err";
     div.style.cssText = "background:#fdd;color:#900;padding:8px;border-radius:8px;margin:8px 0;font-size:12px;white-space:pre-wrap";
-    div.textContent = "popup.html is out of date. Missing: " + missing.join(", ") + "\nUse the popup.html from the latest animanga-tracker-extension.zip, delete the old extension folder, and Load unpacked again (v1.2.4).";
+    div.textContent = "popup.html is out of date. Missing: " + missing.join(", ") + "\nUse the popup.html from the latest animanga-tracker-extension.zip, delete the old extension folder, and Load unpacked again (v1.3.0).";
     document.body.prepend(div);
   } catch (e) {}
 }
 
 const DEFAULTS = {
-  baseUrl: "https://animanga.debayandas.in",
+  baseUrl: "https://hyphen-paragraph-flight.ngrok-free.dev",
   apiKey: "",
   enabled: true
 };

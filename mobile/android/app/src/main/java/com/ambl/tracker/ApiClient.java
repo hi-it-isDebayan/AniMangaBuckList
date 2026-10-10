@@ -53,7 +53,8 @@ public final class ApiClient {
             body.put("kind", "OPENED");
             body.put("source", "android");
             body.put("host", "android");
-            async(Method.POST, "/api/extension/progress", body, (json, status, error) -> {
+            body.put("platform", "android");
+            async(Method.POST, baseUrl + "/scrape", body, (json, status, error) -> {
                 if (status == 409 && json != null && json.optBoolean("needsConfirmation", false)) {
                     PendingStore.add(ctx, json.optJSONObject("detected"));
                 }
@@ -62,6 +63,15 @@ public final class ApiClient {
         } catch (Exception e) {
             if (cb != null) cb.onResult(null, -1, e.getMessage());
         }
+    }
+
+    public void heartbeat() {
+        if (apiKey.isEmpty()) return;
+        try {
+            JSONObject b = new JSONObject();
+            b.put("platform", "android");
+            async(Method.POST, baseUrl + "/ping", b, null);
+        } catch (Exception ignored) {}
     }
 
     public void testConnection(final Callback cb) {

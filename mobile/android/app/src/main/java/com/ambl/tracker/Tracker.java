@@ -11,7 +11,7 @@ import java.util.Date;
 import java.util.Locale;
 
 public final class Tracker {
-    public static final String DEFAULT_BASE = "https://animanga.debayandas.in";
+    public static final String DEFAULT_BASE = "https://hyphen-paragraph-flight.ngrok-free.dev";
     public static final String PREFS = "ambl";
     public static final String KEY_BASE = "baseUrl";
     public static final String KEY_KEY = "apiKey";

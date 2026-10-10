@@ -7,11 +7,26 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 
 public class TrackerForegroundService extends Service {
     public static final String CHANNEL_ID = "ambl_tracker";
     private static final int NOTIF_ID = 1001;
+    private static final long HEARTBEAT_PERIOD_MS = 5 * 60 * 1000L;
+    private final Handler handler = new Handler(Looper.getMainLooper());
+    private final Runnable heartbeat = new Runnable() {
+        @Override
+        public void run() {
+            if (Tracker.enabled(getApplicationContext())) {
+                new ApiClient(getApplicationContext()).heartbeat();
+            }
+            if (!handler.hasCallbacks(this)) {
+                handler.postDelayed(this, HEARTBEAT_PERIOD_MS);
+            }
+        }
+    };
 
     public static void start(Context ctx) {
         try {
@@ -62,6 +77,16 @@ public class TrackerForegroundService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        if (!handler.hasCallbacks(heartbeat)) {
+            handler.post(heartbeat);
+            handler.postDelayed(heartbeat, HEARTBEAT_PERIOD_MS);
+        }
         return START_STICKY;
+    }
+
+    @Override
+    public void onDestroy() {
+        handler.removeCallbacks(heartbeat);
+        super.onDestroy();
     }
 }

@@ -64,7 +64,8 @@ similarity over primary/english/japanese titles and aliases).
 
 - The API key and base URL live in `chrome.storage.local`, only on your machine —
   never in the repo or source files.
-- The base URL defaults to `https://animanga.debayandas.in` and can be changed
+- The base URL defaults to your engine URL (e.g. `https://<host>.ngrok-free.dev`) and can be changed
+  after installation via the Advanced section.
   under the popup's **Advanced** section.
 - The extension needs broad site access (`<all_urls>`) because it adapts to any
   website. Chrome shows "Read and change all your data on all websites" on

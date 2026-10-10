@@ -100,8 +100,11 @@ def scrape(request: Request, payload: dict = Body(default={})) -> Response:
     if not forwarder.check_key(bearer):
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
 
+    platform = str(payload.get("platform") or "extension")
+    if platform not in ("extension", "android", "web"):
+        platform = "extension"
     forwarder.call(
-        "POST", "/api/extension/heartbeat", bearer=bearer, body={"platform": "extension"}
+        "POST", "/api/extension/heartbeat", bearer=bearer, body={"platform": platform}
     )
 
     url = str(payload.get("sourceUrl") or "").strip()

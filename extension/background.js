@@ -1,5 +1,5 @@
 const DEFAULTS = {
-  baseUrl: "https://animanga.debayandas.in",
+  baseUrl: "https://hyphen-paragraph-flight.ngrok-free.dev",
   apiKey: "",
   enabled: true
 };
@@ -106,7 +106,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       apiFetch("/api/extension/library", { method: "GET" }).then(sendResponse);
       return true;
     case "POST_PROGRESS":
-      apiFetch("/api/extension/progress", {
+      apiFetch("/scrape", {
         method: "POST",
         body: JSON.stringify(msg.payload)
       }).then((res) => {
@@ -189,3 +189,25 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       return undefined;
   }
 });
+
+// Device heartbeat so the web profile can show the extension as Online.
+// The engine pings web /api/extension/heartbeat; fires every 5 minutes and on startup.
+
+const HEARTBEAT_PERIOD_MIN = 5;
+
+function sendHeartbeat() {
+  getConfig((config) => {
+    if (!config.enabled || !config.apiKey) return;
+    apiFetch("/ping", {
+      method: "POST",
+      body: JSON.stringify({ platform: "extension" })
+    });
+  });
+}
+
+chrome.alarms.create("ambl-heartbeat", { periodInMinutes: HEARTBEAT_PERIOD_MIN });
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm && alarm.name === "ambl-heartbeat") sendHeartbeat();
+});
+chrome.runtime.onStartup.addListener(sendHeartbeat);
+sendHeartbeat();
