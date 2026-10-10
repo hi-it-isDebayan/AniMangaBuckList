@@ -20,3 +20,15 @@ services:
         sync: false
       - key: MAL_CLIENT_SECRET
         sync: false
+      - key: SESSION_TTL_HOURS
+        value: "720"
+      - key: RESEND_API_KEY
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+      - key: WEBAUTHN_RP_ID
+        sync: false
+      - key: WEBAUTHN_RP_NAME
+        value: AniManga BuckList
+      - key: WEBAUTHN_ORIGINS
+        sync: false

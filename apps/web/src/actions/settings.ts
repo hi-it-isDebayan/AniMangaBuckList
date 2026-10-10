@@ -5,7 +5,13 @@ import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { users, sessions } from "@ambl/database";
 import { getDb } from "@/lib/db";
-import { requireUser, destroyCurrentSession } from "@/lib/auth";
+import {
+  requireUser,
+  destroyCurrentSession,
+  getCurrentSessionId,
+  revokeSessionRow,
+  revokeOtherSessionRows,
+} from "@/lib/auth";
 
 export interface SettingsActionState {
   error?: string;
@@ -59,4 +65,32 @@ export async function logoutAllSessionsAction(): Promise<void> {
   await getDb().delete(sessions).where(eq(sessions.userId, user.id));
   await destroyCurrentSession();
   revalidatePath("/");
+}
+
+export interface SessionActionState {
+  ok: boolean;
+  error?: string;
+}
+
+export async function revokeSessionAction(input: {
+  sessionId: string;
+}): Promise<SessionActionState> {
+  const user = await requireUser();
+  const id = z.string().uuid().safeParse(input?.sessionId);
+  if (!id.success) return { ok: false, error: "Invalid session." };
+  await revokeSessionRow(user.id, id.data);
+  revalidatePath("/settings");
+  return { ok: true };
+}
+
+export async function revokeOtherSessionsAction(): Promise<SessionActionState> {
+  const user = await requireUser();
+  const current = await getCurrentSessionId();
+  if (current) {
+    await revokeOtherSessionRows(user.id, current);
+  } else {
+    await getDb().delete(sessions).where(eq(sessions.userId, user.id));
+  }
+  revalidatePath("/settings");
+  return { ok: true };
 }

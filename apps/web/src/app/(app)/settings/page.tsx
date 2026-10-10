@@ -1,11 +1,16 @@
 import type { Metadata } from "next";
-import { requireUser } from "@/lib/auth";
+import { AlertTriangle, KeyRound, Fingerprint, MonitorSmartphone } from "lucide-react";
+import { requireUser, listSessions, getCurrentSessionId } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import { publicApiKeys, userOauthAccounts, users } from "@ambl/database";
+import { getCredentialsForUser } from "@/lib/passkeys";
 import { SettingsForm } from "@/components/settings-form";
 import { ConnectedAccounts } from "@/components/connected-accounts";
 import { ApiKeyManager } from "@/components/api-key-manager";
+import { PasskeyManager } from "@/components/passkey-manager";
+import { SessionsCard } from "@/components/sessions-card";
+import { ResendVerifyButton } from "@/components/resend-verify-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const metadata: Metadata = { title: "Settings" };
@@ -27,6 +32,7 @@ export default async function SettingsPage({
 
   const prefs = row?.preferences ?? { notifications: { episodes: false, chapters: false } };
   const hasPassword = !!row?.passwordHash;
+  const emailVerified = !!user.emailVerifiedAt;
 
   const authAccounts = await db
     .select({ provider: userOauthAccounts.provider })
@@ -46,6 +52,12 @@ export default async function SettingsPage({
     .from(publicApiKeys)
     .where(eq(publicApiKeys.userId, user.id));
 
+  const [sessionRows, currentSessionId, passkeys] = await Promise.all([
+    listSessions(user.id),
+    getCurrentSessionId(),
+    getCredentialsForUser(user.id),
+  ]);
+
   return (
     <div className="mx-auto max-w-2xl space-y-5">
       <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
@@ -54,6 +66,22 @@ export default async function SettingsPage({
         <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {error}
         </p>
+      )}
+
+      {!emailVerified && (
+        <Card className="border-destructive/40 bg-destructive/5">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-4 w-4" /> Verify your email
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Verify your email to use password recovery, and keep recovery emails secure.
+            </p>
+            <ResendVerifyButton />
+          </CardContent>
+        </Card>
       )}
 
       <Card>
@@ -72,6 +100,44 @@ export default async function SettingsPage({
 
       <Card>
         <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Fingerprint className="h-4 w-4 text-primary" /> Passkeys
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <PasskeyManager
+            credentials={passkeys.map((p) => ({
+              ...p,
+              createdAt: p.createdAt.toISOString(),
+              lastUsedAt: p.lastUsedAt ? p.lastUsedAt.toISOString() : null,
+            }))}
+          />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <MonitorSmartphone className="h-4 w-4 text-primary" /> Devices & sessions
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <SessionsCard
+            sessions={sessionRows.map((s) => ({
+              id: s.id,
+              deviceLabel: s.deviceLabel,
+              ipAddress: s.ipAddress,
+createdAt: s.createdAt.toISOString(),
+                  lastSeenAt: s.lastSeenAt ? s.lastSeenAt.toISOString() : new Date(0).toISOString(),
+                  expiresAt: s.expiresAt.toISOString(),
+            }))}
+            currentSessionId={currentSessionId}
+          />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>Connected accounts</CardTitle>
         </CardHeader>
         <CardContent>
@@ -84,7 +150,9 @@ export default async function SettingsPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>Browser extension API key</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <KeyRound className="h-4 w-4 text-primary" /> Apps & sharing API key
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <ApiKeyManager

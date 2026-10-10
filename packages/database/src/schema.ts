@@ -92,6 +92,7 @@ export const users = pgTable(
     oauthProvider: varchar("oauth_provider", { length: 20 }),
     oauthId: varchar("oauth_id", { length: 255 }),
     avatarUrl: text("avatar_url"),
+    emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
     preferences: jsonb("preferences")
       .$type<UserPreferences>()
       .notNull()
@@ -146,6 +147,9 @@ export const sessions = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     tokenHash: char64("token_hash").notNull(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    deviceLabel: varchar("device_label", { length: 120 }),
+    ipAddress: varchar("ip_address", { length: 64 }),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -154,6 +158,82 @@ export const sessions = pgTable(
     uniqueIndex("sessions_token_hash_uq").on(t.tokenHash),
     index("sessions_user_id_idx").on(t.userId),
     index("sessions_expires_at_idx").on(t.expiresAt),
+  ],
+);
+
+export const authTokens = pgTable(
+  "auth_tokens",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    kind: varchar("kind", { length: 24 }).notNull(),
+    tokenHash: char64("token_hash").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("auth_tokens_token_hash_uq").on(t.tokenHash),
+    index("auth_tokens_user_id_idx").on(t.userId),
+    index("auth_tokens_expires_at_idx").on(t.expiresAt),
+  ],
+);
+
+export const loginRateLimits = pgTable(
+  "login_rate_limits",
+  {
+    key: varchar("key", { length: 160 }).primaryKey(),
+    attempts: integer("attempts").notNull().default(0),
+    windowStartAt: timestamp("window_start_at", { withTimezone: true }).notNull(),
+    lockoutUntil: timestamp("lockout_until", { withTimezone: true }),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+);
+
+export const webauthnCredentials = pgTable(
+  "webauthn_credentials",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    credentialId: varchar("credential_id", { length: 512 }).notNull(),
+    publicKey: text("public_key").notNull(),
+    counter: integer("counter").notNull().default(0),
+    transports: jsonb("transports").$type<string[]>(),
+    name: varchar("name", { length: 120 }),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("webauthn_credentials_credential_id_uq").on(t.credentialId),
+    index("webauthn_credentials_user_id_idx").on(t.userId),
+  ],
+);
+
+export const webauthnChallenges = pgTable(
+  "webauthn_challenges",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id"),
+    kind: varchar("kind", { length: 24 }).notNull(),
+    challenge: varchar("challenge", { length: 128 }).notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("webauthn_challenges_challenge_uq").on(t.challenge),
+    index("webauthn_challenges_user_id_idx").on(t.userId),
   ],
 );
 

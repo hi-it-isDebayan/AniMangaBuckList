@@ -5,7 +5,7 @@ import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { userOauthAccounts, users } from "@ambl/database";
 import { getDb } from "@/lib/db";
-import { hashPassword, requireUser, verifyPassword } from "@/lib/auth";
+import { hashPassword, requireUser, verifyPassword, getCurrentSessionId, revokeOtherSessionRows } from "@/lib/auth";
 
 export interface OAuthActionState {
   error?: string;
@@ -125,6 +125,9 @@ export async function setPasswordAction(
     .update(users)
     .set({ passwordHash })
     .where(eq(users.id, user.id));
+
+  const current = await getCurrentSessionId();
+  if (current) await revokeOtherSessionRows(user.id, current);
 
   revalidatePath("/settings");
   return { success: true };

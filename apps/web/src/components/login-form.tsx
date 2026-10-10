@@ -6,6 +6,7 @@ import { loginAction, type AuthState } from "@/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { OAuthButtons } from "@/components/oauth-buttons";
+import { PasskeySigninButton } from "@/components/passkey-signin-button";
 
 const initialState: AuthState = {};
 
@@ -25,7 +26,15 @@ export function LoginForm() {
         <Input id="email" name="email" type="email" autoComplete="email" required />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="password">Password</Label>
+        <div className="flex items-center justify-between">
+          <Label htmlFor="password">Password</Label>
+          <Link
+            href="/forgot-password"
+            className="text-xs font-medium text-primary hover:underline"
+          >
+            Forgot password?
+          </Link>
+        </div>
         <Input
           id="password"
           name="password"
@@ -37,6 +46,15 @@ export function LoginForm() {
       <Button type="submit" className="w-full" disabled={pending}>
         {pending ? "Signing in…" : "Sign in"}
       </Button>
+      <div className="relative">
+        <div className="absolute inset-0 flex items-center">
+          <span className="w-full border-t border-border" />
+        </div>
+        <div className="relative flex justify-center text-xs uppercase tracking-wide text-muted-foreground">
+          <span className="bg-card px-2">or</span>
+        </div>
+      </div>
+      <PasskeySigninButton />
       <p className="text-center text-sm text-muted-foreground">
         No account?{" "}
         <Link href="/signup" className="font-medium text-primary hover:underline">
