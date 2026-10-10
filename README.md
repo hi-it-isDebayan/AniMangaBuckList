@@ -116,12 +116,32 @@ Use the included [`render.yaml`](./render.yaml) blueprint, or manually create a 
 
 Set `DATABASE_URL` to your Neon database and monitor `/api/health` with UptimeRobot.
 
+### Environment variables
+
+| Variable                 | Purpose                                                        |
+| ------------------------ | -------------------------------------------------------------- |
+| `DATABASE_URL`           | Neon Postgres connection string                                |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google sign-in (login page)              |
+| `MAL_CLIENT_ID` / `MAL_CLIENT_SECRET` | MyAnimeList OAuth (dormant backend, not shown on login) |
+| `RESEND_API_KEY`         | Sends verification / password-reset email via Resend           |
+| `MAIL_FROM`              | Sender for email (default `AniManga BuckList <no-reply@animanga.debayandas.in>`) |
+| `METADATA_PROVIDER`      | Search provider: `mal` or `jikan` (default `jikan`)            |
+| `MANGABAKA_API_KEY`      | MangaBaka PAT; auto-syncs your reading progress into search results |
+| `WEBAUTHN_RP_ID` / `WEBAUTHN_RP_NAME` / `WEBAUTHN_ORIGINS` | Passkey sign-in                          |
+| `SESSION_TTL_HOURS`      | Session lifetime (default `720`)                               |
+| `APP_URL`                | Public site URL (used for email links)                         |
+
+MangaBaka progress syncs automatically (6h TTL) the first time a signed-in user searches or opens Settings; no manual sync needed. No AniList credentials are required — the AniList metadata provider is available as a search fallback only.
+
 ## Providers
 
 Metadata access is behind a provider abstraction (`packages/providers`):
 
 - `jikan` — MyAnimeList via the Jikan API (no credentials, default)
-- `mal` — official MyAnimeList REST API (set `METADATA_PROVIDER=mal` and `MAL_ACCESS_TOKEN`)
+- `mal` — official MyAnimeList REST API (set `METADATA_PROVIDER=mal` and `MAL_CLIENT_ID`/`MAL_CLIENT_SECRET`)
+- `anilist` — AniList GraphQL (set `METADATA_PROVIDER=anilist`; used as a search fallback)
+
+Sign-in is Google-only. MyAnimeList OAuth routes remain in the codebase but are not linked from the UI. Progress badges come from MangaBaka (auto-synced via `MANGABAKA_API_KEY`).
 
 Release tracking (new chapter/episode notifications) will use a separate `ReleaseProvider` abstraction in Phase 3.
 
