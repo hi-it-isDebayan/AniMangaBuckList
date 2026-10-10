@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { oauthTokens } from "@ambl/database";
 import { getDb } from "@/lib/db";
 
-export type TokenProvider = "mal" | "anilist" | "mangabaka";
+export type TokenProvider = "mal" | "mangabaka";
 
 export interface ProviderTokenRecord {
   accessToken: string;

@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { providerEntries } from "@ambl/database";
 import { getDb } from "@/lib/db";
 import {
@@ -204,92 +204,6 @@ async function syncMal(userId: string): Promise<number> {
   return entries.length;
 }
 
-const ANILIST_LIST_QUERY = `
-  query ($page: Int, $perPage: Int) {
-    Page(page: $page, perPage: $perPage) {
-      mediaList {
-        id
-        status
-        progress
-        media {
-          id
-          idMal
-          type
-          title { romaji english native }
-          coverImage { large }
-        }
-      }
-    }
-  }
-`;
-
-async function syncAniList(userId: string): Promise<number> {
-  const tokens = await getProviderTokens(userId, "anilist");
-  if (!tokens) return 0;
-
-  const entries: ListEntry[] = [];
-  let page = 1;
-  for (let i = 0; i < 40; i += 1) {
-    const res = await fetch("https://graphql.anilist.co", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${tokens.accessToken}`,
-      },
-      cache: "no-store",
-      body: JSON.stringify({
-        query: ANILIST_LIST_QUERY,
-        variables: { page, perPage: 50 },
-      }),
-    });
-    if (!res.ok) break;
-    const json = (await res.json()) as {
-      data?: {
-        Page?: {
-          mediaList?: (Record<string, unknown> | null)[] | null;
-          pageInfo?: { hasNextPage?: boolean } | null;
-        } | null;
-      } | null;
-      errors?: { message?: string }[];
-    };
-    if (json.errors?.length || !json.data?.Page) break;
-
-    for (const item of json.data.Page.mediaList ?? []) {
-      const media = (item?.media ?? {}) as {
-        id?: number;
-        idMal?: number | null;
-        type?: "ANIME" | "MANGA" | null;
-        title?: { romaji?: string | null; english?: string | null; native?: string | null } | null;
-        coverImage?: { large?: string | null } | null;
-      };
-      if (!media?.id) continue;
-      const isAnime = media.type === "ANIME";
-      const progress = typeof item?.progress === "number" ? item.progress : 0;
-      entries.push({
-        externalId: String(media.id),
-        anilistId: media.id,
-        malId: media.idMal ?? null,
-        mediaType: isAnime ? "ANIME" : "MANGA",
-        title:
-          media.title?.english?.trim() ||
-          media.title?.romaji?.trim() ||
-          media.title?.native?.trim() ||
-          "",
-        coverUrl: media.coverImage?.large ?? null,
-        progressValue: progress,
-        progressUnit: isAnime ? "EPISODE" : "CHAPTER",
-        status: typeof item?.status === "string" ? item.status : null,
-      });
-    }
-
-    if (!json.data.Page.pageInfo?.hasNextPage) break;
-    page += 1;
-  }
-
-  await replaceEntries(userId, "anilist", entries);
-  return entries.length;
-}
-
 interface MangabakaSeriesSource {
   anilist?: { id?: number | null } | null;
   my_anime_list?: { id?: number | null } | null;
@@ -311,6 +225,10 @@ interface MangabakaLibraryItem {
   } | null;
 }
 
+function mangabakaApiKey(): string | null {
+  return process.env.MANGABAKA_API_KEY?.trim() || null;
+}
+
 async function mangabakaLibraryPage(accessToken: string, page: number) {
   const res = await fetch(
     `https://api.mangabaka.org/v1/my/library?limit=100&page=${page}`,
@@ -327,12 +245,12 @@ async function mangabakaLibraryPage(accessToken: string, page: number) {
 }
 
 async function syncMangabaka(userId: string): Promise<number> {
-  const tokens = await getProviderTokens(userId, "mangabaka");
-  if (!tokens) return 0;
+  const apiKey = mangabakaApiKey();
+  if (!apiKey) return 0;
 
   const entries: ListEntry[] = [];
   for (let page = 1; page <= 100; page += 1) {
-    const result = await mangabakaLibraryPage(tokens.accessToken, page);
+    const result = await mangabakaLibraryPage(apiKey, page);
     if (result.status !== 200 || !result.data) break;
 
     const data = result.data as {
@@ -371,11 +289,7 @@ export async function syncProviderEntries(
 ): Promise<SyncResult> {
   try {
     const count =
-      provider === "mal"
-        ? await syncMal(userId)
-        : provider === "anilist"
-          ? await syncAniList(userId)
-          : await syncMangabaka(userId);
+      provider === "mal" ? await syncMal(userId) : await syncMangabaka(userId);
     return { ok: true, count };
   } catch (err) {
     return {
@@ -395,4 +309,49 @@ export async function deleteProviderRows(
     .where(
       and(eq(providerEntries.userId, userId), eq(providerEntries.provider, provider)),
     );
+}
+
+const DEFAULT_SYNC_TTL_HOURS = 6;
+
+export async function mangabakaLastSynced(userId: string): Promise<Date | null> {
+  if (!mangabakaApiKey()) return null;
+  const [row] = await getDb()
+    .select()
+    .from(providerEntries)
+    .where(and(eq(providerEntries.userId, userId), eq(providerEntries.provider, "mangabaka")))
+    .orderBy(desc(providerEntries.updatedAt))
+    .limit(1);
+  return row ? row.updatedAt : null;
+}
+
+export async function ensureMangabakaSynced(userId: string): Promise<void> {
+  if (!mangabakaApiKey()) return;
+  const db = getDb();
+  const [row] = await db
+    .select()
+    .from(providerEntries)
+    .where(and(eq(providerEntries.userId, userId), eq(providerEntries.provider, "mangabaka")))
+    .orderBy(desc(providerEntries.updatedAt))
+    .limit(1);
+
+  const ttlHours = Number(process.env.MANGABAKA_SYNC_TTL_HOURS ?? DEFAULT_SYNC_TTL_HOURS);
+  if (row && Date.now() - row.updatedAt.getTime() < ttlHours * 60 * 60 * 1000) {
+    return;
+  }
+
+  try {
+    await syncMangabaka(userId);
+  } catch (err) {
+    // Never break the caller (search/profile) because MangaBaka is down.
+    console.error("MangaBaka sync failed:", err);
+  }
+}
+
+export async function countMangabakaEntries(userId: string): Promise<number> {
+  const db = getDb();
+  const rows = await db
+    .select({ id: providerEntries.id })
+    .from(providerEntries)
+    .where(and(eq(providerEntries.userId, userId), eq(providerEntries.provider, "mangabaka")));
+  return rows.length;
 }

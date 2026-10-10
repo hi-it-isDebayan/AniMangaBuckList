@@ -20,11 +20,7 @@ services:
         sync: false
       - key: MAL_CLIENT_SECRET
         sync: false
-      - key: ANILIST_CLIENT_ID
-        sync: false
-      - key: ANILIST_CLIENT_SECRET
-        sync: false
-      - key: ANILIST_REDIRECT_URI
+      - key: MANGABAKA_API_KEY
         sync: false
       - key: SESSION_TTL_HOURS
         value: "720"

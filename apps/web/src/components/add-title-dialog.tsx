@@ -106,7 +106,7 @@ export function AddTitleDialog() {
             <Input
               autoFocus
               className="pl-9"
-              placeholder="Search MyAnimeList, AniList, MangaBaka…"
+              placeholder="Search MyAnimeList…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => {

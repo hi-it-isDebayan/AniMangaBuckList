@@ -6,6 +6,7 @@ import { providerEntries, titles, userLibrary } from "@ambl/database";
 import type { ProviderProgressBadge, TrackerProvider } from "@ambl/types";
 import { getDb } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
+import { ensureMangabakaSynced } from "@/lib/provider-sync";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,6 @@ const searchQuery = z.object({
 
 const PROVIDER_LABEL: Record<TrackerProvider, string> = {
   mal: "MyAnimeList",
-  anilist: "AniList",
   mangabaka: "MangaBaka",
 };
 
@@ -85,6 +85,7 @@ export async function GET(req: NextRequest) {
   let byMalId = new Map<number, (typeof providerEntries.$inferSelect)[]>();
   let byAnilistId = new Map<number, (typeof providerEntries.$inferSelect)[]>();
   if (user) {
+    await ensureMangabakaSynced(user.id);
     const rows = await db
       .select()
       .from(providerEntries)
@@ -111,7 +112,7 @@ export async function GET(req: NextRequest) {
       ...(item.malId != null ? byMalId.get(item.malId) ?? [] : []),
       ...(item.anilistId != null ? byAnilistId.get(item.anilistId) ?? [] : []),
     ];
-    const priority: TrackerProvider[] = ["mangabaka", "anilist", "mal"];
+    const priority: TrackerProvider[] = ["mangabaka", "mal"];
     const seen = new Set<string>();
     const ranked = priority
       .map((p) => candidates.find((c) => c.provider === p))

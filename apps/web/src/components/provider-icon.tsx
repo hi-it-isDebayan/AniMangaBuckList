@@ -2,7 +2,6 @@ import { cn } from "@/lib/utils";
 
 const GLYPHS: Record<string, { label: string; className: string; letter: string }> = {
   mal: { label: "MyAnimeList", letter: "MAL", className: "border-sky-500/30 text-sky-400" },
-  anilist: { label: "AniList", letter: "AL", className: "border-violet-500/30 text-violet-400" },
   mangabaka: { label: "MangaBaka", letter: "MB", className: "border-emerald-500/30 text-emerald-400" },
 };
 

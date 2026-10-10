@@ -3,8 +3,13 @@ import { AlertTriangle, KeyRound, Fingerprint, MonitorSmartphone } from "lucide-
 import { requireUser, listSessions, getCurrentSessionId } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { eq } from "drizzle-orm";
-import { publicApiKeys, userOauthAccounts, oauthTokens, users } from "@ambl/database";
+import { publicApiKeys, userOauthAccounts, users } from "@ambl/database";
 import { getCredentialsForUser } from "@/lib/passkeys";
+import {
+  countMangabakaEntries,
+  ensureMangabakaSynced,
+  mangabakaLastSynced,
+} from "@/lib/provider-sync";
 import { SettingsForm } from "@/components/settings-form";
 import { ConnectedAccounts } from "@/components/connected-accounts";
 import { ApiKeyManager } from "@/components/api-key-manager";
@@ -41,11 +46,12 @@ export default async function SettingsPage({
 
   const linkedProviders = new Set(authAccounts.map((a) => a.provider));
 
-  const trackerTokens = await db
-    .select({ provider: oauthTokens.provider })
-    .from(oauthTokens)
-    .where(eq(oauthTokens.userId, user.id));
-  const trackedProviders = new Set(trackerTokens.map((t) => t.provider));
+  await ensureMangabakaSynced(user.id);
+  const [mangabakaCount, mangabakaSyncedAt] = await Promise.all([
+    countMangabakaEntries(user.id),
+    mangabakaLastSynced(user.id),
+  ]);
+  const mangabakaConfigured = !!process.env.MANGABAKA_API_KEY?.trim();
 
   const apiKeys = await db
     .select({
@@ -149,12 +155,10 @@ createdAt: s.createdAt.toISOString(),
         <CardContent>
           <ConnectedAccounts
             linkedGoogle={linkedProviders.has("google")}
-            linkedMal={linkedProviders.has("mal")}
-            linkedAnilist={linkedProviders.has("anilist")}
-            trackedMal={trackedProviders.has("mal")}
-            trackedAnilist={trackedProviders.has("anilist")}
-            mangabakaConnected={trackedProviders.has("mangabaka")}
             hasPassword={hasPassword}
+            mangabakaConfigured={mangabakaConfigured}
+            mangabakaCount={mangabakaCount}
+            mangabakaLastSynced={mangabakaSyncedAt ? mangabakaSyncedAt.toISOString() : null}
           />
         </CardContent>
       </Card>

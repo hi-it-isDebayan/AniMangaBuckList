@@ -16,14 +16,9 @@ function oauthErrorLabel(code: string): string {
     "MyAnimeList token exchange failed": "MyAnimeList sign-in failed. Please try again.",
     "Could not fetch MAL profile": "We could not fetch your MyAnimeList profile.",
     "MyAnimeList sign-in failed": "MyAnimeList sign-in failed. Please try again.",
-    "AniList sign-in declined": "AniList sign-in was cancelled.",
-    "AniList token exchange failed": "AniList sign-in failed. Please try again.",
-    "Could not fetch AniList profile": "We could not fetch your AniList profile.",
-    "AniList sign-in failed": "AniList sign-in failed. Please try again.",
     "Please sign in first": "Please sign in before linking an account.",
     "Google sign-in is not configured": "Google sign-in is not configured.",
     "Maybe add MAL credentials first": "MyAnimeList sign-in is not configured.",
-    "Maybe add AniList credentials first": "AniList sign-in is not configured.",
     session: "Your session could not be created. Please try again.",
   };
   return map[code] ?? code;

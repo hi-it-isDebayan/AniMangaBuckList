@@ -4,7 +4,7 @@ import { and, eq, or } from "drizzle-orm";
 import { userOauthAccounts, users } from "@ambl/database";
 import { getDb } from "@/lib/db";
 
-export type OAuthProvider = "mal" | "google" | "anilist";
+export type OAuthProvider = "mal" | "google";
 export type OAuthMode = "signin" | "link";
 
 const STATE_COOKIE = "ambl_oauth_state";
@@ -89,15 +89,11 @@ export function isOAuthConfigured(provider: OAuthProvider): boolean {
   if (provider === "mal") {
     return !!(process.env.MAL_CLIENT_ID && process.env.MAL_CLIENT_SECRET);
   }
-  if (provider === "anilist") {
-    return !!(process.env.ANILIST_CLIENT_ID && process.env.ANILIST_CLIENT_SECRET);
-  }
   return !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
 }
 
 function providerLabel(provider: OAuthProvider): string {
   if (provider === "google") return "Google";
-  if (provider === "anilist") return "AniList";
   return "MyAnimeList";
 }
 
@@ -314,11 +310,4 @@ export function malRedirectUri(request: Request): string {
 
 export function googleRedirectUri(request: Request): string {
   return process.env.GOOGLE_REDIRECT_URI ?? `${getRequestBaseUrl(request)}/api/auth/google/callback`;
-}
-
-export function anilistRedirectUri(request: Request): string {
-  return (
-    process.env.ANILIST_REDIRECT_URI ??
-    `${getRequestBaseUrl(request)}/api/auth/anilist/callback`
-  );
 }

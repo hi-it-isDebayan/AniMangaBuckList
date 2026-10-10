@@ -17,12 +17,12 @@ export interface OAuthActionState {
 export interface UnlinkResult {
   ok: boolean;
   error?: string;
-  data?: { provider: "mal" | "google" | "anilist" };
+  data?: { provider: "mal" | "google" };
 }
 
-const providerSchema = z.enum(["mal", "google", "anilist"]);
+const providerSchema = z.enum(["mal", "google"]);
 
-export async function unlinkProviderAction(input: { provider: "mal" | "google" | "anilist" }): Promise<UnlinkResult> {
+export async function unlinkProviderAction(input: { provider: "mal" | "google" }): Promise<UnlinkResult> {
   const user = await requireUser();
   const provider = providerSchema.safeParse(input.provider);
   if (!provider.success) return { ok: false, error: "Invalid provider." };
@@ -68,10 +68,10 @@ export async function unlinkProviderAction(input: { provider: "mal" | "google" |
       ),
     );
 
-  if (provider.data === "mal" || provider.data === "anilist") {
+  if (provider.data === "mal") {
     await Promise.all([
-      deleteProviderTokens(user.id, provider.data),
-      deleteProviderRows(user.id, provider.data),
+      deleteProviderTokens(user.id, "mal"),
+      deleteProviderRows(user.id, "mal"),
     ]);
   }
 

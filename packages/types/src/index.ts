@@ -49,7 +49,7 @@ export interface UserPreferences {
   };
 }
 
-export type TrackerProvider = "mal" | "anilist" | "mangabaka";
+export type TrackerProvider = "mal" | "mangabaka";
 
 export interface ProviderProgressBadge {
   provider: TrackerProvider;
