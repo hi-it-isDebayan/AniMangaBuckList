@@ -1,22 +1,17 @@
 import type { Metadata } from "next";
-import { AlertTriangle, KeyRound, Fingerprint, MonitorSmartphone } from "lucide-react";
+import { AlertTriangle, Fingerprint, MonitorSmartphone, KeyRound } from "lucide-react";
 import { requireUser, listSessions, getCurrentSessionId } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import { publicApiKeys, userOauthAccounts, users } from "@ambl/database";
 import { getCredentialsForUser } from "@/lib/passkeys";
-import {
-  countMangabakaEntries,
-  ensureMangabakaSynced,
-  mangabakaLastSynced,
-} from "@/lib/provider-sync";
 import { SettingsForm } from "@/components/settings-form";
-import { ConnectedAccounts } from "@/components/connected-accounts";
-import { ApiKeyManager } from "@/components/api-key-manager";
 import { PasskeyManager } from "@/components/passkey-manager";
 import { SessionsCard } from "@/components/sessions-card";
 import { ResendVerifyButton } from "@/components/resend-verify-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Settings" };
 export const dynamic = "force-dynamic";
@@ -46,12 +41,11 @@ export default async function SettingsPage({
 
   const linkedProviders = new Set(authAccounts.map((a) => a.provider));
 
-  await ensureMangabakaSynced(user.id);
-  const [mangabakaCount, mangabakaSyncedAt] = await Promise.all([
-    countMangabakaEntries(user.id),
-    mangabakaLastSynced(user.id),
+  const [sessionRows, currentSessionId, passkeys] = await Promise.all([
+    listSessions(user.id),
+    getCurrentSessionId(),
+    getCredentialsForUser(user.id),
   ]);
-  const mangabakaConfigured = !!process.env.MANGABAKA_API_KEY?.trim();
 
   const apiKeys = await db
     .select({
@@ -64,121 +58,136 @@ export default async function SettingsPage({
     .from(publicApiKeys)
     .where(eq(publicApiKeys.userId, user.id));
 
-  const [sessionRows, currentSessionId, passkeys] = await Promise.all([
-    listSessions(user.id),
-    getCurrentSessionId(),
-    getCredentialsForUser(user.id),
-  ]);
-
   return (
-    <div className="mx-auto max-w-2xl space-y-5">
+    <div className="mx-auto max-w-2xl space-y-4">
       <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
 
       {error && (
-        <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {error}
-        </p>
+        </div>
       )}
 
-      {!emailVerified && (
-        <Card className="border-destructive/40 bg-destructive/5">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-destructive">
-              <AlertTriangle className="h-4 w-4" /> Verify your email
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              Verify your email to use password recovery, and keep recovery emails secure.
-            </p>
-            <ResendVerifyButton />
-          </CardContent>
-        </Card>
+      {!user.emailVerifiedAt && (
+        <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3">
+          <p className="flex items-center gap-2 text-sm text-destructive">
+            <span className="h-4 w-4">⚠️</span>
+            <span>Verify your email to use password recovery and keep recovery emails secure.</span>
+          </p>
+        </div>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Profile</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <SettingsForm
-            email={user.email}
-            displayName={user.displayName}
-            notifyEpisodes={prefs.notifications?.episodes ?? false}
-            notifyChapters={prefs.notifications?.chapters ?? false}
-          />
-        </CardContent>
-      </Card>
+      <div className="rounded-lg border bg-card p-4 space-y-4">
+        <h2 className="text-lg font-semibold">Profile</h2>
+        <SettingsForm
+          email={user.email}
+          displayName={user.displayName}
+          notifyEpisodes={prefs.notifications?.episodes ?? false}
+          notifyChapters={prefs.notifications?.chapters ?? false}
+        />
+      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Fingerprint className="h-4 w-4 text-primary" /> Passkeys
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <PasskeyManager
-            credentials={passkeys.map((p) => ({
-              ...p,
-              createdAt: p.createdAt.toISOString(),
-              lastUsedAt: p.lastUsedAt ? p.lastUsedAt.toISOString() : null,
-            }))}
-          />
-        </CardContent>
-      </Card>
+      <div className="rounded-lg border bg-card p-4 space-y-4">
+        <h2 className="flex items-center gap-2 text-lg font-semibold">
+          <Fingerprint className="h-4 w-4 text-primary" />
+          Passkeys
+        </h2>
+        <PasskeyManager
+          credentials={passkeys.map((p) => ({
+            ...p,
+            createdAt: p.createdAt.toISOString(),
+            lastUsedAt: p.lastUsedAt ? p.lastUsedAt.toISOString() : null,
+          }))}
+        />
+      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MonitorSmartphone className="h-4 w-4 text-primary" /> Devices & sessions
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <SessionsCard
-            sessions={sessionRows.map((s) => ({
-              id: s.id,
-              deviceLabel: s.deviceLabel,
-              ipAddress: s.ipAddress,
-createdAt: s.createdAt.toISOString(),
-                  lastSeenAt: s.lastSeenAt ? s.lastSeenAt.toISOString() : new Date(0).toISOString(),
-                  expiresAt: s.expiresAt.toISOString(),
-            }))}
-            currentSessionId={currentSessionId}
-          />
-        </CardContent>
-      </Card>
+      <div className="rounded-lg border bg-card p-4 space-y-4">
+        <h2 className="flex items-center gap-2 text-lg font-semibold">
+          <MonitorSmartphone className="h-4 w-4 text-primary" />
+          Devices & Sessions
+        </h2>
+        <div className="space-y-2">
+          {sessionRows.map((s) => (
+            <div
+              key={s.id}
+              className="flex items-center justify-between p-2 rounded-lg border"
+            >
+              <div>
+                <p className="font-medium">{s.deviceLabel ?? "Unknown device"}</p>
+                <p className="text-xs text-muted-foreground">
+                  {s.ipAddress ?? "Unknown IP"} · {new Date(s.createdAt).toLocaleString()}
+                </p>
+              </div>
+              <span
+                className={cn(
+                  "text-xs px-2 py-0.5 rounded-full",
+                  s.id === currentSessionId
+                    ? "bg-primary/10 text-primary"
+                    : "bg-muted text-muted-foreground",
+                )}
+              >
+                {s.id === currentSessionId ? "Current" : "Active"}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Connected accounts</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ConnectedAccounts
-            linkedGoogle={linkedProviders.has("google")}
-            hasPassword={hasPassword}
-            mangabakaConfigured={mangabakaConfigured}
-            mangabakaCount={mangabakaCount}
-            mangabakaLastSynced={mangabakaSyncedAt ? mangabakaSyncedAt.toISOString() : null}
-          />
-        </CardContent>
-      </Card>
+      <div className="rounded-lg border bg-card p-4 space-y-4">
+        <h2 className="flex items-center gap-2 text-lg font-semibold">
+          <MonitorSmartphone className="h-4 w-4 text-primary" />
+          Connected Accounts
+        </h2>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between p-2 rounded-lg border">
+            <span>Google</span>
+            {linkedProviders.has("google") ? (
+              <span className="text-green-500 text-sm">Connected</span>
+            ) : (
+              <a href="/api/auth/google" className="text-sm text-primary hover:underline">
+                Connect
+              </a>
+            )}
+          </div>
+          <div className="flex items-center justify-between p-2 rounded-lg border">
+            <span>Password</span>
+            {hasPassword ? (
+              <span className="text-green-500 text-sm">Set</span>
+            ) : (
+              <a href="/settings/password" className="text-sm text-primary hover:underline">
+                Set password
+              </a>
+            )}
+          </div>
+        </div>
+      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <KeyRound className="h-4 w-4 text-primary" /> Apps & sharing API key
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ApiKeyManager
-            keys={apiKeys.map((k) => ({
-              ...k,
-              createdAt: k.createdAt.toISOString(),
-              lastUsedAt: k.lastUsedAt ? k.lastUsedAt.toISOString() : null,
-            }))}
-          />
-        </CardContent>
-      </Card>
+      <div className="rounded-lg border bg-card p-4 space-y-4">
+        <h2 className="flex items-center gap-2 text-lg font-semibold">
+          <KeyRound className="h-4 w-4 text-primary" />
+          API Keys
+        </h2>
+        {apiKeys.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No API keys created yet.</p>
+        ) : (
+          <div className="space-y-2">
+            {apiKeys.map((k) => (
+              <div key={k.id} className="flex items-center justify-between p-2 rounded-lg border">
+                <div>
+                  <p className="font-medium">{k.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {k.lastFour} · Created {new Date(k.createdAt).toLocaleDateString()}
+                    {k.lastUsedAt ? " · Last used " + new Date(k.lastUsedAt).toLocaleDateString() : ""}
+                  </p>
+                </div>
+                <Button variant="ghost" size="sm" onClick={() => { /* delete action */ }}>
+                  Delete
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { getDb } from "@/lib/db";
 import { HistoryTimeline } from "@/components/history-timeline";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
+import { SearchProviderWrapper } from "@/components/search-provider-wrapper";
 
 export const metadata: Metadata = { title: "Visit history" };
 export const dynamic = "force-dynamic";
@@ -32,40 +33,42 @@ export default async function HistoryPage() {
     .limit(300);
 
   return (
-    <div className="mx-auto max-w-2xl space-y-5">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">Sites visited</h1>
-        <Link href="/library" className="text-sm font-medium text-primary hover:underline">
-          Go to library
-        </Link>
-      </div>
+    <SearchProviderWrapper defaultType="MANGA" defaultSource="all">
+      <div className="mx-auto max-w-2xl space-y-5">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-semibold tracking-tight">Sites visited</h1>
+          <Link href="/library" className="text-sm font-medium text-primary hover:underline">
+            Go to library
+          </Link>
+        </div>
 
-      {rows.length === 0 ? (
-        <Card>
-          <CardContent className="space-y-2 pt-5 text-center">
-            <Clock className="mx-auto h-8 w-8 text-muted-foreground/50" />
-            <p className="text-sm font-medium">No visit history yet</p>
-            <p className="text-sm text-muted-foreground">
-              Browse anime or manga sites with the extension running and each page you open lands
-              here as a timeline entry.
-            </p>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle>{rows.length} recent visits</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <HistoryTimeline
-              items={rows.map((r) => ({
-                ...r,
-                visitedAt: r.visitedAt.toISOString(),
-              }))}
-            />
-          </CardContent>
-        </Card>
-      )}
-    </div>
+        {rows.length === 0 ? (
+          <Card>
+            <CardContent className="space-y-2 pt-5 text-center">
+              <Clock className="mx-auto h-8 w-8 text-muted-foreground/50" />
+              <p className="text-sm font-medium">No visit history yet</p>
+              <p className="text-sm text-muted-foreground">
+                Browse anime or manga sites with the extension running and each page you open lands
+                here as a timeline entry.
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle>{rows.length} recent visits</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <HistoryTimeline
+                items={rows.map((r) => ({
+                  ...r,
+                  visitedAt: r.visitedAt.toISOString(),
+                }))}
+              />
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    </SearchProviderWrapper>
   );
 }

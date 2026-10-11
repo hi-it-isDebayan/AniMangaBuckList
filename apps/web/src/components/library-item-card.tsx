@@ -35,52 +35,78 @@ export interface LibraryRowData {
   updatedAt: Date | string;
 }
 
-export function LibraryItemRow({ item }: { item: LibraryRowData }) {
+export function LibraryItemRow({
+  item,
+  viewMode = "list",
+}: { item: LibraryRowData; viewMode?: "grid" | "list" }) {
   const [confirming, setConfirming] = useState(false);
   const router = useRouter();
 
   const unit = progressUnitForType(item.mediaType);
   const opened = unit === "EPISODE" ? item.openedEpisode : item.openedChapter;
-  const completed =
-    unit === "EPISODE" ? item.completedEpisode : item.completedChapter;
+  const completed = unit === "EPISODE" ? item.completedEpisode : item.completedChapter;
   const current = Math.max(opened ?? 0, completed ?? 0);
   const label = unit === "EPISODE" ? "Episode" : "Chapter";
 
+  const isGrid = viewMode === "grid";
+
   return (
-    <div className="card-hover group relative flex items-center gap-3 overflow-hidden rounded-xl border bg-card p-2.5 pr-3 shadow-sm sm:gap-4 sm:p-3">
+    <div
+      className={cn(
+        "card-hover group relative overflow-hidden rounded-xl border bg-card shadow-sm",
+        isGrid
+          ? "flex flex-col items-center gap-3 p-3"
+          : "flex items-center gap-3 overflow-hidden rounded-xl border bg-card p-2.5 pr-3 shadow-sm sm:gap-4 sm:p-3"
+      )}
+    >
       <span className={cn("absolute inset-y-0 left-0 w-1", statusAccentClass(item.status))} />
 
       <Link
-        href={`/title/${item.titleId}`}
-        className="relative shrink-0 overflow-hidden rounded-lg bg-muted ring-1 ring-border"
+        href={"/title/" + item.titleId}
+        className={cn(
+          "relative shrink-0 overflow-hidden rounded-lg bg-muted ring-1 ring-border",
+          isGrid ? "w-full aspect-square" : "shrink-0 overflow-hidden rounded-lg"
+        )}
       >
         {item.coverUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={item.coverUrl}
             alt={item.title}
             loading="lazy"
             referrerPolicy="no-referrer"
-            className="h-[72px] w-[52px] object-cover transition-transform duration-500 group-hover:scale-105"
+            className={cn(
+              "object-cover transition-transform duration-500 group-hover:scale-105",
+              isGrid ? "h-full w-full" : "h-[72px] w-[52px] transition-transform duration-500 group-hover:scale-105"
+            )}
           />
         ) : (
-          <span className="cover-fallback flex h-[72px] w-[52px] items-center justify-center text-muted-foreground">
+          <span
+            className={cn(
+              "cover-fallback flex items-center justify-center text-muted-foreground",
+              isGrid ? "h-full w-full" : "h-[72px] w-[52px]"
+            )}
+          >
             <BookOpenText className="h-6 w-6" />
           </span>
         )}
       </Link>
 
-      <div className="min-w-0 flex-1">
-        <div className="flex items-start gap-2">
+      <div className={cn("min-w-0", isGrid ? "w-full text-center" : "min-w-0 flex-1")}>
+        <div className={cn("flex items-start gap-2", isGrid ? "flex-col items-center" : "flex items-start gap-2")}>
           <div className="min-w-0 flex-1">
             <Link
-              href={`/title/${item.titleId}`}
-              className="line-clamp-1 font-medium leading-snug transition-colors group-hover:text-primary"
+              href={"/title/" + item.titleId}
+              className={cn(
+                "font-medium leading-snug transition-colors group-hover:text-primary",
+                isGrid ? "line-clamp-2 text-center" : "line-clamp-1 leading-snug"
+              )}
             >
               {item.title}
             </Link>
             {item.englishTitle && item.englishTitle !== item.title && (
-              <p className="line-clamp-1 text-xs text-muted-foreground">{item.englishTitle}</p>
+              <p className={cn("line-clamp-1 text-xs text-muted-foreground", isGrid ? "text-center" : "")}>
+                {item.englishTitle}
+              </p>
             )}
           </div>
           <span className="hidden shrink-0 text-[11px] text-muted-foreground/70 sm:block">
@@ -88,7 +114,7 @@ export function LibraryItemRow({ item }: { item: LibraryRowData }) {
           </span>
         </div>
 
-        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+        <div className={cn("mt-1.5 flex flex-wrap items-center gap-1.5", isGrid ? "justify-center" : "")}>
           <Badge variant="outline">{mediaTypeLabel(item.mediaType)}</Badge>
           {item.year && <Badge variant="secondary">{item.year}</Badge>}
           <Badge className="bg-primary/15 text-primary">
@@ -99,7 +125,7 @@ export function LibraryItemRow({ item }: { item: LibraryRowData }) {
           </span>
         </div>
 
-        <div className="mt-2 flex items-center gap-2">
+        <div className={cn("mt-2 flex items-center gap-2", isGrid ? "justify-center" : "")}>
           <StatusSelect titleId={item.titleId} status={item.status} />
           <div className="ml-auto flex items-center gap-1">
             {item.lastSourceUrl && (

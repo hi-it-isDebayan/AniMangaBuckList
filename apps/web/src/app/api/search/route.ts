@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { and, eq, inArray } from "drizzle-orm";
-import { getMetadataProvider } from "@ambl/providers";
+import { getMetadataProvider, MangaBakaProvider } from "@ambl/providers";
 import { providerEntries, titles, userLibrary } from "@ambl/database";
 import type { ProviderProgressBadge, TrackerProvider } from "@ambl/types";
 import { getDb } from "@/lib/db";
@@ -14,11 +14,14 @@ const searchQuery = z.object({
   q: z.string().trim().min(1, "Query required").max(120),
   type: z.enum(["ANIME", "MANGA", "BOOK"]).default("MANGA"),
   limit: z.coerce.number().int().min(1).max(24).default(12),
+  source: z.enum(["all", "mal", "mangabaka", "anilist"]).default("all"),
 });
 
-const PROVIDER_LABEL: Record<TrackerProvider, string> = {
+const PROVIDER_LABEL: Record<string, string> = {
   mal: "MyAnimeList",
   mangabaka: "MangaBaka",
+  anilist: "AniList",
+  jikan: "Jikan",
 };
 
 function badgeFor(entry: (typeof providerEntries.$inferSelect)[] | null): ProviderProgressBadge | null {
@@ -46,20 +49,6 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const provider = getMetadataProvider();
-  let items;
-  try {
-    items = await provider.search(parsed.data.q, {
-      type: parsed.data.type,
-      limit: parsed.data.limit,
-    });
-  } catch (err) {
-    return NextResponse.json(
-      { error: (err as Error).message },
-      { status: 502 },
-    );
-  }
-
   const db = getDb();
   const user = await getCurrentUser();
 
@@ -72,8 +61,53 @@ export async function GET(req: NextRequest) {
     libraryIds = new Set(rows.map((r) => r.titleId));
   }
 
+  const source = parsed.data.source;
+  let allItems: any[] = [];
+
+  // Search MangaBaka if requested
+  if (source === "all" || source === "mangabaka") {
+    try {
+      const mangabakaItems = await MangaBakaProvider.search(parsed.data.q, {
+        type: parsed.data.type,
+        limit: parsed.data.limit,
+      });
+      allItems.push(...mangabakaItems.map((item) => ({ ...item, source: "mangabaka" })));
+    } catch (err) {
+      console.warn("MangaBaka search failed:", err);
+    }
+  }
+
+  // Search MAL/Jikan/Anilist if requested
+  if (source === "all" || source === "mal" || source === "anilist") {
+    const provider = getMetadataProvider();
+    let items;
+    try {
+      items = await provider.search(parsed.data.q, {
+        type: parsed.data.type,
+        limit: parsed.data.limit,
+      });
+    } catch (err) {
+      return NextResponse.json(
+        { error: (err as Error).message },
+        { status: 502 },
+      );
+    }
+    allItems.push(...items.map((item) => ({ ...item, source: "mal" })));
+  }
+
+  // Deduplicate by MAL ID and AniList ID
+  const seen = new Set<string>();
+  const uniqueItems: any[] = [];
+  for (const item of allItems) {
+    const key = item.malId ? `mal:${item.malId}` : item.anilistId ? `anilist:${item.anilistId}` : `id:${item.id}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    uniqueItems.push(item);
+  }
+
+  // Build provider progress badges
   let byKey = new Map<string, string>();
-  const malIds = items.map((i) => i.malId).filter((m): m is number => m !== null);
+  const malIds = uniqueItems.map((i) => i.malId).filter((m): m is number => m !== null);
   if (malIds.length > 0) {
     const known = await db
       .select({ id: titles.id, malId: titles.malId, source: titles.source })
@@ -82,8 +116,8 @@ export async function GET(req: NextRequest) {
     byKey = new Map(known.map((k) => [`${k.source}:${k.malId}`, k.id]));
   }
 
-  let byMalId = new Map<number, (typeof providerEntries.$inferSelect)[]>();
-  let byAnilistId = new Map<number, (typeof providerEntries.$inferSelect)[]>();
+  let byMalId = new Map<number, any[]>();
+  let byAnilistId = new Map<number, any[]>();
   if (user) {
     await ensureMangabakaSynced(user.id);
     const rows = await db
@@ -104,23 +138,22 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  const sourceKey = provider.name.toUpperCase();
-  const enriched = items.map((item) => {
-    const titleId = item.malId === null ? null : byKey.get(`${sourceKey}:${item.malId}`) ?? null;
+  const enriched = uniqueItems.map((item) => {
+    const titleId = item.malId === null ? null : byKey.get(`${item.source}:${item.malId}`) ?? null;
 
     const candidates = [
       ...(item.malId != null ? byMalId.get(item.malId) ?? [] : []),
       ...(item.anilistId != null ? byAnilistId.get(item.anilistId) ?? [] : []),
     ];
-    const priority: TrackerProvider[] = ["mangabaka", "mal"];
-    const seen = new Set<string>();
+    const priority: string[] = ["mangabaka", "mal", "anilist", "jikan"];
+    const seenProviders = new Set<string>();
     const ranked = priority
       .map((p) => candidates.find((c) => c.provider === p))
-      .filter((c): c is (typeof providerEntries.$inferSelect) => !!c)
+      .filter((c): c is any => !!c)
       .filter((c) => {
         const k = `${c.provider}:${c.externalId}`;
-        if (seen.has(k)) return false;
-        seen.add(k);
+        if (seenProviders.has(k)) return false;
+        seenProviders.add(k);
         return true;
       });
 

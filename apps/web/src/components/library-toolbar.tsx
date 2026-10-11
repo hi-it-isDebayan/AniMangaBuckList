@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search } from "lucide-react";
+import { Search, LayoutGrid, List } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 
 export function LibraryToolbar({
   status,
@@ -12,15 +13,18 @@ export function LibraryToolbar({
   tag,
   sort,
   query,
+  view = "list",
 }: {
   status: string;
   mediaType: string;
   tag: string;
   sort: string;
   query: string;
+  view?: "grid" | "list";
 }) {
   const router = useRouter();
   const [q, setQ] = useState(query);
+  const [viewMode, setViewMode] = useState<"grid" | "list">(view);
 
   const apply = (patch: Partial<Record<string, string>>) => {
     const params = new URLSearchParams();
@@ -31,6 +35,7 @@ export function LibraryToolbar({
       type: "type" in patch ? (patch.type ?? "") : mediaType,
       tag: "tag" in patch ? (patch.tag ?? "") : tag,
       sort: "sort" in patch ? (patch.sort ?? "") : sort,
+      view: "view" in patch ? (patch.view ?? "") : viewMode,
     };
     for (const [key, value] of Object.entries(merged)) {
       if (value) params.set(key, value);
@@ -85,6 +90,26 @@ export function LibraryToolbar({
         <option value="added">Recently added</option>
         <option value="title">Title (A–Z)</option>
       </Select>
+      <div className="flex items-center gap-1">
+        <Button
+          variant={viewMode === "grid" ? "default" : "outline"}
+          size="icon"
+          onClick={() => apply({ view: "grid" })}
+          aria-label="Grid view"
+          title="Grid view"
+        >
+          <LayoutGrid className="h-4 w-4" />
+        </Button>
+        <Button
+          variant={viewMode === "list" ? "default" : "outline"}
+          size="icon"
+          onClick={() => apply({ view: "list" })}
+          aria-label="List view"
+          title="List view"
+        >
+          <List className="h-4 w-4" />
+        </Button>
+      </div>
     </div>
   );
 }

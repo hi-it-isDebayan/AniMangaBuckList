@@ -13,6 +13,7 @@ import { DiscoverCard } from "@/components/discover-card";
 import { EmptyState } from "@/components/empty-state";
 import { Pagination } from "@/components/pagination";
 import { SegmentedTabs } from "@/components/segmented-tabs";
+import { SearchProviderWrapper } from "@/components/search-provider-wrapper";
 
 export const metadata: Metadata = { title: "Discover" };
 export const dynamic = "force-dynamic";
@@ -66,79 +67,81 @@ export default async function DiscoverPage({
   };
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-end justify-between gap-3">
-        <div>
-          <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-            <Compass className="h-6 w-6 text-primary" /> Discover
-          </h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">
-            What&apos;s {DISCOVER_SORTS.find((s) => s.key === sort)?.label.toLowerCase()} on
-            MangaBaka
-            {year ? ` from ${year}` : ""}
-            {result.count > 0 ? ` · ${result.count.toLocaleString()} titles` : ""}
-          </p>
+    <SearchProviderWrapper defaultType="MANGA" defaultSource="mangabaka">
+      <div className="space-y-5">
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
+              <Compass className="h-6 w-6 text-primary" /> Discover
+            </h1>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              What&apos;s {DISCOVER_SORTS.find((s) => s.key === sort)?.label.toLowerCase()} on
+              MangaBaka
+              {year ? ` from ${year}` : ""}
+              {result.count > 0 ? ` · ${result.count.toLocaleString()} titles` : ""}
+            </p>
+          </div>
         </div>
-      </div>
 
-      <div className="flex flex-col gap-2.5">
-        <SegmentedTabs
-          items={DISCOVER_FORMATS.map((f) => ({
-            key: f.key,
-            label: f.label,
-            href: buildHref({ format: f.key, page: 1 }),
-          }))}
-          active={format}
-          variant="brand"
-        />
-
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex flex-col gap-2.5">
           <SegmentedTabs
-            items={DISCOVER_SORTS.map((s) => ({
-              key: s.key,
-              label: s.label,
-              href: buildHref({ sort: s.key, page: 1 }),
+            items={DISCOVER_FORMATS.map((f) => ({
+              key: f.key,
+              label: f.label,
+              href: buildHref({ format: f.key, page: 1 }),
             }))}
-            active={sort}
+            active={format}
+            variant="brand"
           />
-          <SegmentedTabs
-            items={[
-              { key: "all", label: "All years", href: buildHref({ year: null, page: 1 }) },
-              ...DISCOVER_YEARS.map((y) => ({
-                key: String(y),
-                label: String(y),
-                href: buildHref({ year: y, page: 1 }),
-              })),
-            ]}
-            active={year == null ? "all" : String(year)}
-          />
+
+          <div className="flex flex-wrap items-center gap-2.5">
+            <SegmentedTabs
+              items={DISCOVER_SORTS.map((s) => ({
+                key: s.key,
+                label: s.label,
+                href: buildHref({ sort: s.key, page: 1 }),
+              }))}
+              active={sort}
+            />
+            <SegmentedTabs
+              items={[
+                { key: "all", label: "All years", href: buildHref({ year: null, page: 1 }) },
+                ...DISCOVER_YEARS.map((y) => ({
+                  key: String(y),
+                  label: String(y),
+                  href: buildHref({ year: y, page: 1 }),
+                })),
+              ]}
+              active={year == null ? "all" : String(year)}
+            />
+          </div>
         </div>
-      </div>
 
-      <p className="text-xs text-muted-foreground">
-        Anime isn&apos;t part of MangaBaka&apos;s catalogue — browse manga, manhwa, manhua, and
-        novels here. Data from MangaBaka, released by publication year.
-      </p>
+        <p className="text-xs text-muted-foreground">
+          Anime isn&apos;t part of MangaBaka&apos;s catalogue — browse manga, manhwa, manhua, and
+          novels here. Data from MangaBaka, released by publication year.
+        </p>
 
-      {result.items.length === 0 ? (
-        <EmptyState
-          icon={<Compass className="h-8 w-8" />}
-          title="Nothing to show"
-          description="No titles matched this combination yet. Try another format, year, or sort."
+        {result.items.length === 0 ? (
+          <EmptyState
+            icon={<Compass className="h-8 w-8" />}
+            title="Nothing to show"
+            description="No titles matched this combination yet. Try another format, year, or sort."
+          />
+        ) : (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+            {result.items.map((item) => (
+              <DiscoverCard key={item.id} item={item} />
+            ))}
+          </div>
+        )}
+
+        <Pagination
+          page={result.page}
+          totalPages={result.totalPages}
+          buildHref={(p) => buildHref({ page: p })}
         />
-      ) : (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-          {result.items.map((item) => (
-            <DiscoverCard key={item.id} item={item} />
-          ))}
-        </div>
-      )}
-
-      <Pagination
-        page={result.page}
-        totalPages={result.totalPages}
-        buildHref={(p) => buildHref({ page: p })}
-      />
-    </div>
+      </div>
+    </SearchProviderWrapper>
   );
 }

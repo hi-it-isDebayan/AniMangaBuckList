@@ -15,10 +15,12 @@ import {
   mediaTypeLabel,
   planStatusForType,
 } from "@/lib/format";
+import { useSearch } from "@/components/search-context";
 
 interface SearchItem extends SearchResultItem {
   titleId: string | null;
   inLibrary: boolean;
+  source?: string;
 }
 
 function itemKey(item: SearchItem) {
@@ -30,13 +32,18 @@ const TYPE_TABS: { key: "MANGA" | "ANIME"; label: string }[] = [
   { key: "ANIME", label: "Anime" },
 ];
 
+const SOURCE_TABS: { key: "all" | "mal" | "mangabaka" | "anilist"; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "mal", label: "MAL" },
+  { key: "mangabaka", label: "MangaBaka" },
+  { key: "anilist", label: "AniList" },
+];
+
 export function CommandSearch() {
-  const [query, setQuery] = useState("");
-  const [type, setType] = useState<"ANIME" | "MANGA">("MANGA");
+  const { query, setQuery, type, setType, source, setSource, open, setOpen } = useSearch();
   const [items, setItems] = useState<SearchItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [open, setOpen] = useState(false);
   const [pendingKey, setPendingKey] = useState<string | null>(null);
   const [added, setAdded] = useState<Record<string, string>>({});
   const inputRef = useRef<HTMLInputElement>(null);
@@ -44,14 +51,14 @@ export function CommandSearch() {
   const abortRef = useRef<AbortController | null>(null);
   const router = useRouter();
 
-  const runSearch = useCallback(async (q: string, searchType: string) => {
+  const runSearch = useCallback(async (q: string, searchType: string, searchSource: string) => {
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
     setLoading(true);
     setError(null);
     try {
-      const params = new URLSearchParams({ q, type: searchType, limit: "12" });
+      const params = new URLSearchParams({ q, type: searchType, limit: "12", source: searchSource });
       const res = await fetch(`/api/search?${params}`, { signal: controller.signal });
       if (!res.ok) {
         const body = await res.json().catch(() => null);
@@ -74,9 +81,9 @@ export function CommandSearch() {
       setLoading(false);
       return;
     }
-    const t = setTimeout(() => void runSearch(q, type), 350);
+    const t = setTimeout(() => void runSearch(q, type, source), 350);
     return () => clearTimeout(t);
-  }, [query, type, runSearch]);
+  }, [query, type, source, runSearch]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -101,7 +108,7 @@ export function CommandSearch() {
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("ambl:focus-search", focus);
     };
-  }, []);
+  }, [setOpen]);
 
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
@@ -109,7 +116,7 @@ export function CommandSearch() {
     };
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
-  }, []);
+  }, [setOpen]);
 
   const add = async (item: SearchItem, status: LibraryStatus) => {
     if (item.malId == null) {
@@ -152,7 +159,7 @@ export function CommandSearch() {
               )}
               {!loading && !error && items.length === 0 && (
                 <div className="flex items-center gap-2 px-3 py-6 text-sm text-muted-foreground">
-                  <Sparkles className="h-4 w-4" /> Nothing found for “{query.trim()}”.
+                  <Sparkles className="h-4 w-4" /> Nothing found for "{query.trim()}".
                 </div>
               )}
               {!loading &&
@@ -164,7 +171,7 @@ export function CommandSearch() {
                   const progress = item.providerProgress;
                   return (
                     <div
-                      key={key}
+                      key={itemKey(item)}
                       className={cn(
                         "group flex items-start gap-3 rounded-xl p-2 transition-colors",
                         !inLibrary && "cursor-pointer hover:bg-accent/60",
@@ -181,7 +188,6 @@ export function CommandSearch() {
                       }}
                     >
                       {item.coverUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={item.coverUrl}
                           alt=""
@@ -197,19 +203,19 @@ export function CommandSearch() {
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
                           <p className="truncate text-sm font-medium">{item.title}</p>
-                          {progress && (
+                          {item.source && (
                             <span
-                              title={`Tracked in ${progress.label}${progress.status ? ` · ${progress.status}` : ""}`}
                               className={cn(
                                 "inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold",
-                                progress.provider === "mangabaka"
+                                item.source === "mangabaka"
                                   ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                                  : item.source === "anilist"
+                                  ? "bg-purple-500/15 text-purple-700 dark:text-purple-300"
                                   : "bg-sky-500/15 text-sky-700 dark:text-sky-300",
                               )}
                             >
-                              <ProviderIcon provider={progress.provider} />
-                              {progress.label}
-                              {progress.text ? ` · ${progress.text}` : ""}
+                              <ProviderIcon provider={item.source} />
+                              {item.source === "mangabaka" ? "MangaBaka" : item.source === "anilist" ? "AniList" : "MAL"}
                             </span>
                           )}
                         </div>
@@ -314,6 +320,23 @@ export function CommandSearch() {
                   {tab.label}
                 </button>
               ))}
+              <div className="flex shrink-0 items-center gap-0.5 rounded-xl bg-muted/60 p-0.5">
+                {SOURCE_TABS.map((tab) => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => setSource(tab.key as any)}
+                    className={cn(
+                      "rounded-lg px-2.5 py-1 text-xs font-medium transition-colors",
+                      source === tab.key
+                        ? "bg-card text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
             </div>
             <kbd className="mr-1 hidden shrink-0 rounded-md border bg-muted/60 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground sm:inline-block">
               /

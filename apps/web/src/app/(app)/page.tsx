@@ -34,6 +34,7 @@ import {
   statusAccentClass,
 } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { SearchProviderWrapper } from "@/components/search-provider-wrapper";
 
 export const dynamic = "force-dynamic";
 
@@ -142,7 +143,8 @@ export default async function DashboardPage() {
   const inProgress = continueRows.length;
 
   return (
-    <div className="space-y-6">
+    <SearchProviderWrapper defaultType="MANGA" defaultSource="all">
+      <div className="space-y-6">
       <section className="relative overflow-hidden rounded-2xl border bg-card p-6 sm:p-8">
         <div
           aria-hidden="true"
@@ -408,7 +410,8 @@ export default async function DashboardPage() {
           </div>
         )}
       </section>
-    </div>
+      </div>
+    </SearchProviderWrapper>
   );
 }
 

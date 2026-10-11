@@ -361,8 +361,8 @@ export async function importFromProviderAction(): Promise<
         entry.progressValue == null
           ? {}
           : unit === "EPISODE"
-            ? { lastOpenedEpisode: entry.progressValue }
-            : { lastOpenedChapter: entry.progressValue };
+            ? { lastOpenedEpisode: entry.progressValue, lastCompletedEpisode: entry.progressValue }
+            : { lastOpenedChapter: entry.progressValue, lastCompletedChapter: entry.progressValue };
 
       await db
         .insert(userProgress)

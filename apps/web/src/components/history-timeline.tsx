@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Globe } from "lucide-react";
 
 export interface HistoryItem {
   id: string;
@@ -51,19 +51,26 @@ export function HistoryTimeline({ items }: { items: HistoryItem[] }) {
           </h2>
           <ol className="relative space-y-4 border-l border-border pl-4">
             {group.items.map((item) => (
-              <li key={item.id} className="relative flex items-start gap-3">
+              <li key={item.id} className="relative flex items-center gap-3">
                 <span className="absolute -left-[21.5px] top-1.5 h-3 w-3 rounded-full border-2 border-emerald-500 bg-card" />
                 {item.coverUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={item.coverUrl}
-                    alt=""
-                    referrerPolicy="no-referrer"
-                    loading="lazy"
-                    className="h-10 w-7 shrink-0 rounded object-cover ring-1 ring-border"
-                  />
+                  <Link
+                    href={item.malId ? "https://myanimelist.net/anime/" + item.malId : item.site}
+                    className="shrink-0"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={item.malId ? "View on MyAnimeList" : "View source"}
+                  >
+                    <img
+                      src={item.coverUrl}
+                      alt=""
+                      referrerPolicy="no-referrer"
+                      loading="lazy"
+                      className="h-10 w-10 shrink-0 rounded-full object-cover ring-2 ring-border"
+                    />
+                  </Link>
                 ) : (
-                  <span className="flex h-10 w-7 shrink-0 items-center justify-center rounded bg-muted text-[9px] font-semibold text-muted-foreground">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-[9px] font-semibold text-muted-foreground">
                     {item.title?.slice(0, 2).toUpperCase() || "?"}
                   </span>
                 )}
@@ -79,18 +86,23 @@ export function HistoryTimeline({ items }: { items: HistoryItem[] }) {
                   </div>
                   <p className="text-xs text-muted-foreground">
                     {item.unit === "EPISODE" ? "Episode" : "Chapter"} {item.value ?? "?"}
-                    {item.site ? <span> · {item.site}</span> : null}
+                    {item.site ? (
+                      <span className="flex items-center gap-1 ml-1">
+                        <Globe className="h-3 w-3" />
+                        <span>{item.site}</span>
+                      </span>
+                    ) : null}
                   </p>
                 </div>
                 {item.malId && (
                   <Link
-                    href={`https://myanimelist.net/anime/${item.malId}`}
+                    href={"https://myanimelist.net/anime/" + item.malId}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="mt-0.5 shrink-0 text-xs text-primary hover:underline"
                     aria-label="View on MyAnimeList"
                   >
-                    <ExternalLink className="h-3.5 w-3.5" />
+                    <span>MAL</span>
                   </Link>
                 )}
               </li>

@@ -25,6 +25,7 @@ import { Pagination } from "@/components/pagination";
 import { SegmentedTabs } from "@/components/segmented-tabs";
 import { LIBRARY_STATUSES, GENRE_CHIP_COLORS, libraryStatusLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { SearchProviderWrapper } from "@/components/search-provider-wrapper";
 
 export const metadata: Metadata = { title: "Library" };
 export const dynamic = "force-dynamic";
@@ -60,6 +61,8 @@ export default async function LibraryPage({
   const genre = String(sp.genre ?? "").trim().slice(0, 40);
   const rawPage = Number(sp.page ?? 1);
   const page = Number.isFinite(rawPage) && rawPage >= 1 ? Math.floor(rawPage) : 1;
+  const rawView = String(sp.view ?? "list");
+  const viewMode = rawView === "grid" ? "grid" : "list";
 
   const db = getDb();
 
@@ -190,6 +193,7 @@ export default async function LibraryPage({
     if (tag) params.set("tag", tag);
     if (genre) params.set("genre", genre);
     if (sort !== "updated") params.set("sort", sort);
+    if (viewMode !== "list") params.set("view", viewMode);
     if (q) params.set("q", q);
     params.set("page", String(p));
     return `/library?${params.toString()}`;
@@ -202,6 +206,7 @@ export default async function LibraryPage({
     if (tag) params.set("tag", tag);
     if (genre) params.set("genre", genre);
     if (sort !== "updated") params.set("sort", sort);
+    if (viewMode !== "list") params.set("view", viewMode);
     if (q) params.set("q", q);
     return `/library?${params.toString()}`;
   };
@@ -217,96 +222,99 @@ export default async function LibraryPage({
   ];
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Library</h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">
-            {total} {total === 1 ? "title" : "titles"} tracked
+    <SearchProviderWrapper defaultType="MANGA" defaultSource="all">
+      <div className="space-y-5">
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">Library</h1>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              {total} {total === 1 ? "title" : "titles"} tracked
+            </p>
+          </div>
+          <p className="hidden shrink-0 items-center gap-1 text-xs text-muted-foreground sm:flex">
+            Press
+            <kbd className="rounded-md border bg-muted px-1.5 py-0.5 font-medium">/</kbd>
+            to search & add
           </p>
         </div>
-        <p className="hidden shrink-0 items-center gap-1 text-xs text-muted-foreground sm:flex">
-          Press
-          <kbd className="rounded-md border bg-muted px-1.5 py-0.5 font-medium">/</kbd>
-          to search &amp; add
-        </p>
+
+        {mangabakaTotal > 0 && (
+          <ImportProviderButton
+            importable={mangabakaImportable}
+            total={mangabakaTotal}
+          />
+        )}
+
+        <LibraryToolbar
+          status={status}
+          mediaType={mediaType}
+          tag={tag}
+          sort={sort}
+          query={q}
+          view={viewMode}
+        />
+
+        <SegmentedTabs
+          items={MEDIA_TABS.map((tab) => ({
+            key: tab.key || "all",
+            label: tab.label,
+            href: buildTypeHref(tab.key),
+          }))}
+          active={mediaType || "all"}
+          variant="brand"
+        />
+
+        {genreCounts.length > 0 && (
+          <div className="-mx-1 flex items-center gap-1.5 overflow-x-auto px-1 pb-1">
+            <GenreChip href="/library" active={!genre} label="All" />
+            {genreCounts.map((g, i) => (
+              <GenreChip
+                key={g.genre}
+                href={`/library?genre=${encodeURIComponent(g.genre)}`}
+                active={genre === g.genre}
+                label={g.genre}
+                count={g.count}
+                color={GENRE_CHIP_COLORS[i % GENRE_CHIP_COLORS.length]}
+              />
+            ))}
+          </div>
+        )}
+
+        <SegmentedTabs
+          items={tabs.map((tab) => ({
+            key: tab.key,
+            label: tab.label,
+            count: tab.count,
+            href: tab.key === "ALL" ? "/library" : buildHref(1).replace(/[?&]page=\d+/, ""),
+          }))}
+          active={status}
+        />
+
+        {rows.length === 0 ? (
+          <EmptyState
+            icon={<BookMarked className="h-8 w-8" />}
+            title={
+              status === "ALL" && !q && !mediaType && !tag
+                ? "Your library is empty"
+                : "No titles match"
+            }
+            description={
+              status === "ALL" && !q && !mediaType && !tag
+                ? "Use the search bar at the bottom to find and add anime and manga you follow."
+                : "Try adjusting the filters."
+            }
+          />
+        ) : (
+          <div className={cn("space-y-2", viewMode === "grid" && "grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5")}>
+            {rows.map((row) => (
+              <LibraryItemRow key={row.titleId} item={row} viewMode={viewMode} />
+            ))}
+          </div>
+        )}
+
+        <Pagination page={currentPage} totalPages={totalPages} buildHref={buildHref} />
       </div>
-
-      {mangabakaTotal > 0 && (
-        <ImportProviderButton
-          importable={mangabakaImportable}
-          total={mangabakaTotal}
-        />
-      )}
-
-      <LibraryToolbar
-        status={status}
-        mediaType={mediaType}
-        tag={tag}
-        sort={sort}
-        query={q}
-      />
-
-      <SegmentedTabs
-        items={MEDIA_TABS.map((tab) => ({
-          key: tab.key || "all",
-          label: tab.label,
-          href: buildTypeHref(tab.key),
-        }))}
-        active={mediaType || "all"}
-        variant="brand"
-      />
-
-      {genreCounts.length > 0 && (
-        <div className="-mx-1 flex items-center gap-1.5 overflow-x-auto px-1 pb-1">
-          <GenreChip href="/library" active={!genre} label="All" />
-          {genreCounts.map((g, i) => (
-            <GenreChip
-              key={g.genre}
-              href={`/library?genre=${encodeURIComponent(g.genre)}`}
-              active={genre === g.genre}
-              label={g.genre}
-              count={g.count}
-              color={GENRE_CHIP_COLORS[i % GENRE_CHIP_COLORS.length]}
-            />
-          ))}
-        </div>
-      )}
-
-      <SegmentedTabs
-        items={tabs.map((tab) => ({
-          key: tab.key,
-          label: tab.label,
-          count: tab.count,
-          href: tab.key === "ALL" ? "/library" : buildHref(1).replace(/[?&]page=\d+/, ""),
-        }))}
-        active={status}
-      />
-
-      {rows.length === 0 ? (
-        <EmptyState
-          icon={<BookMarked className="h-8 w-8" />}
-          title={
-            status === "ALL" && !q && !mediaType && !tag
-              ? "Your library is empty"
-              : "No titles match"
-          }
-          description={
-            status === "ALL" && !q && !mediaType && !tag
-              ? "Use the search bar at the bottom to find and add anime and manga you follow."
-              : "Try adjusting the filters."
-          }
-        />
-      ) : (
-        <div className="space-y-2">
-          {rows.map((row) => (
-            <LibraryItemRow key={row.titleId} item={row} />
-          ))}
-        </div>
-      )}
-
-      <Pagination page={currentPage} totalPages={totalPages} buildHref={buildHref} />
-    </div>
+    </SearchProviderWrapper>
   );
 }
 
