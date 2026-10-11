@@ -104,12 +104,13 @@ function toSearchResultItem(series: MangabakaSeries): SearchResultItem {
   const titles = (series.titles ?? []).filter((t: MangabakaTitleRow) => t?.title);
   const english =
     titles.find((t: MangabakaTitleRow) => /^en(\b|-)/i.test(t.language ?? ""))?.title ?? null;
-  const native =
-    titles.find((t: MangabakaTitleRow) => (t.traits ?? []).includes("native"))?.title ??
-    titles.find((t: MangabakaTitleRow) => t.language === series.original_language)?.title ??
+  const native = 
+    titles.find((t: MangabakaTitleRow) => Array.isArray(t.traits) && t.traits.includes("native"))?.title ??
+    titles.find((t: MangabakaTitleRow) => t.language === (series as any).original_language)?.title ??
     null;
-  const japanese = titles.find((t: MangabakaTitleRow) => (t.language ?? "").startsWith("ja"))?.title ?? null;
+  const japanese = titles.find((t: MangabakaTitleRow) => ((t.language ?? "") as string).startsWith("ja"))?.title ?? null;
   const primary = titles.find((t: MangabakaTitleRow) => t.is_primary)?.title ?? titles[0]?.title ?? null;
+  const synopsis = series.description?.trim();
   const title = english ?? primary ?? "MangaBaka #" + series.id;
 
   const malId = num(series.source?.my_anime_list?.id);
@@ -121,7 +122,7 @@ function toSearchResultItem(series: MangabakaSeries): SearchResultItem {
     nativeTitle: native && native !== title ? native : null,
     englishTitle: english,
     japaneseTitle: japanese && japanese !== title ? japanese : null,
-    mediaType: mapMediaType(series.type),
+    mediaType: mapMediaType(series.type || ""),
     status: mapStatus(series.status),
     year: parseYear(series.published?.start_date),
     startDate: series.published?.start_date ?? null,
@@ -134,9 +135,13 @@ function toSearchResultItem(series: MangabakaSeries): SearchResultItem {
     malId,
     anilistId,
     canonicalUrl: series.canonical_url ?? null,
-    synopsis: series.description?.trim() || null,
+    synopsis: synopsis ?? null,
     popularity: num(series.popularity?.global?.current),
-  };
+    synonyms: [],
+    episodeCount: null,
+    season: null,
+    genres: [],
+  } as SearchResultItem;
 }
 
 export const MangaBakaProvider = {
