@@ -10,22 +10,19 @@ function apiHeaders(): Record<string, string> {
   return headers;
 }
 
-function mapMediaType(type: string): "ANIME" | "MANGA" | "BOOK" {
+function mapMediaType(type: string): import("@ambl/types").MediaType {
   switch (type?.toLowerCase()) {
     case "manga":
-    case "manhwa":
-    case "manhua":
-    case "oel":
-    case "other":
       return "MANGA";
     case "manhwa":
-      return "MANGA";
+      return "MANHWA";
     case "manhua":
-      return "MANGA";
+      return "MANHUA";
     case "novel":
     case "light_novel":
+      return "LIGHT_NOVEL";
     case "web_novel":
-      return "BOOK";
+      return "WEB_NOVEL";
     default:
       return "MANGA";
   }
