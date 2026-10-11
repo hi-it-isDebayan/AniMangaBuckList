@@ -103,16 +103,16 @@ interface SearchResponse {
   pagination?: { count?: number; page?: number } | null;
 }
 
-function toSearchResultItem(series: any) {
-  const titles = (series.titles ?? []).filter((t) => t?.title);
+function toSearchResultItem(series: MangabakaSeries): SearchResultItem {
+  const titles = (series.titles ?? []).filter((t: MangabakaTitleRow) => t?.title);
   const english =
-    titles.find((t) => /^en(\b|-)/i.test(t.language ?? ""))?.title ?? null;
+    titles.find((t: MangabakaTitleRow) => /^en(\b|-)/i.test(t.language ?? ""))?.title ?? null;
   const native =
-    titles.find((t) => (t.traits ?? []).includes("native"))?.title ??
-    titles.find((t) => t.language === series.original_language)?.title ??
+    titles.find((t: MangabakaTitleRow) => (t.traits ?? []).includes("native"))?.title ??
+    titles.find((t: MangabakaTitleRow) => t.language === series.original_language)?.title ??
     null;
-  const japanese = titles.find((t) => (t.language ?? "").startsWith("ja"))?.title ?? null;
-  const primary = titles.find((t) => t.is_primary)?.title ?? titles[0]?.title ?? null;
+  const japanese = titles.find((t: MangabakaTitleRow) => (t.language ?? "").startsWith("ja"))?.title ?? null;
+  const primary = titles.find((t: MangabakaTitleRow) => t.is_primary)?.title ?? titles[0]?.title ?? null;
   const title = english ?? primary ?? "MangaBaka #" + series.id;
 
   const malId = num(series.source?.my_anime_list?.id);
@@ -144,7 +144,7 @@ function toSearchResultItem(series: any) {
 
 export const MangaBakaProvider = {
   name: "mangabaka",
-  async search(query: string, options: { type?: "ANIME" | "MANGA" | "BOOK"; limit?: number } = {}): Promise<any[]> {
+  async search(query: string, options: { type?: "ANIME" | "MANGA" | "BOOK"; limit?: number } = {}): Promise<SearchResultItem[]> {
     const type = options.type === "ANIME" ? "novel" : options.type === "MANGA" ? "manga" : "manga";
     const limit = options.limit ?? 12;
     
