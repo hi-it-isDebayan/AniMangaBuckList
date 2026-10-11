@@ -1,5 +1,7 @@
 import type { MediaRelation, MediaType, SearchResultItem } from "@ambl/types";
 
+export type { SearchResultItem, MediaType };
+
 export interface SearchOptions {
   type?: "ANIME" | "MANGA" | "BOOK";
   limit?: number;
