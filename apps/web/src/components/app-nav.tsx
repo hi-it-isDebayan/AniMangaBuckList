@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Clock, Home, LibraryBig } from "lucide-react";
+import { Clock, Compass, Home, LibraryBig } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const items = [
   { href: "/", label: "Home", icon: Home },
+  { href: "/discover", label: "Discover", icon: Compass },
   { href: "/library", label: "Library", icon: LibraryBig },
   { href: "/history", label: "History", icon: Clock },
 ];

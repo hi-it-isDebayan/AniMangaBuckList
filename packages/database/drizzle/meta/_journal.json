@@ -64,6 +64,13 @@
       "when": 1791671432456,
       "tag": "0008_jittery_vertigo",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791688063686,
+      "tag": "0009_absent_earthquake",
+      "breakpoints": true
     }
   ]
 }

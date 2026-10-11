@@ -12,7 +12,7 @@ export function Pagination({
   buildHref: (page: number) => string;
 }) {
   if (totalPages <= 1) return null;
-  const pages = Array.from({ length: totalPages }, (_, i) => i + 1);
+  const items = pageWindow(page, totalPages, 7);
   return (
     <nav className="flex items-center justify-center gap-1" aria-label="Pagination">
       <PageLink
@@ -22,16 +22,26 @@ export function Pagination({
       >
         <ChevronLeft className="h-4 w-4" />
       </PageLink>
-      {pages.map((p) => (
-        <PageLink
-          key={p}
-          href={buildHref(p)}
-          current={p === page}
-          label={`Page ${p}`}
-        >
-          {p}
-        </PageLink>
-      ))}
+      {items.map((item, i) =>
+        item === "…" ? (
+          <span
+            key={`gap-${i}`}
+            className="inline-flex h-8 min-w-8 items-center justify-center px-2 text-sm text-muted-foreground"
+            aria-hidden="true"
+          >
+            …
+          </span>
+        ) : (
+          <PageLink
+            key={item}
+            href={buildHref(item)}
+            current={item === page}
+            label={`Page ${item}`}
+          >
+            {item}
+          </PageLink>
+        ),
+      )}
       <PageLink
         href={buildHref(Math.min(totalPages, page + 1))}
         disabled={page >= totalPages}
@@ -41,6 +51,28 @@ export function Pagination({
       </PageLink>
     </nav>
   );
+}
+
+function pageWindow(current: number, total: number, max: number): (number | "…")[] {
+  if (total <= max) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+  const half = Math.floor(max / 2);
+  let start = Math.max(1, current - half);
+  const end = Math.min(total, start + max - 1);
+  start = Math.max(1, end - max + 1);
+
+  const out: (number | "…")[] = [];
+  if (start > 1) {
+    out.push(1);
+    if (start > 2) out.push("…");
+  }
+  for (let p = start; p <= end; p += 1) out.push(p);
+  if (end < total) {
+    if (end < total - 1) out.push("…");
+    out.push(total);
+  }
+  return out;
 }
 
 function PageLink({

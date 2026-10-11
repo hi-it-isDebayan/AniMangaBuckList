@@ -33,3 +33,5 @@ mobile/android/build/
 mobile/android/keystore.properties
 mobile/android/*.jks
 mobile/android/*.keystore
+docs/rebuild-prompt.txt
+engine/_detect_test.js

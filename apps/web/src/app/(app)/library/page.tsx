@@ -13,8 +13,13 @@ import {
 } from "@ambl/database";
 import { requireUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
+import {
+  countMangabakaEntries,
+  ensureMangabakaSynced,
+} from "@/lib/provider-sync";
 import { LibraryItemRow } from "@/components/library-item-card";
 import { LibraryToolbar } from "@/components/library-toolbar";
+import { ImportProviderButton } from "@/components/import-provider-button";
 import { EmptyState } from "@/components/empty-state";
 import { Pagination } from "@/components/pagination";
 import { SegmentedTabs } from "@/components/segmented-tabs";
@@ -57,6 +62,26 @@ export default async function LibraryPage({
   const page = Number.isFinite(rawPage) && rawPage >= 1 ? Math.floor(rawPage) : 1;
 
   const db = getDb();
+
+  await ensureMangabakaSynced(user.id);
+  let mangabakaTotal = 0;
+  let mangabakaImportable = 0;
+  try {
+    mangabakaTotal = await countMangabakaEntries(user.id);
+    if (mangabakaTotal > 0) {
+      const importableRes = await db.execute(
+        sql`select count(*)::int as count from provider_entries pe where pe.user_id = ${user.id} and pe.provider = 'mangabaka' and not exists (select 1 from user_library ul join titles t on t.id = ul.title_id where ul.user_id = ${user.id} and ((pe.mal_id is not null and t.mal_id = pe.mal_id) or lower(t.primary_title) = lower(pe.title)))`,
+      );
+      const rows = (
+        Array.isArray(importableRes)
+          ? importableRes
+          : (importableRes as { rows?: unknown[] }).rows ?? []
+      ) as { count: number }[];
+      mangabakaImportable = rows[0]?.count ?? 0;
+    }
+  } catch {
+    mangabakaImportable = 0;
+  }
 
   const conditions = [eq(userLibrary.userId, user.id)];
   if (status !== "ALL") {
@@ -206,6 +231,13 @@ export default async function LibraryPage({
           to search &amp; add
         </p>
       </div>
+
+      {mangabakaTotal > 0 && (
+        <ImportProviderButton
+          importable={mangabakaImportable}
+          total={mangabakaTotal}
+        />
+      )}
 
       <LibraryToolbar
         status={status}

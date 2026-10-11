@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import type {
   LibraryStatus,
@@ -21,11 +21,18 @@ import {
   tags,
   userTags,
   externalLinks,
+  providerEntries,
 } from "@ambl/database";
 import { getMetadataProvider } from "@ambl/providers";
 import { getDb } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-import { defaultStatusForType } from "@/lib/format";
+import { ensureMangabakaSynced } from "@/lib/provider-sync";
+import { getMangabakaSeries, toDiscoverItem } from "@/lib/mangabaka";
+import {
+  defaultStatusForType,
+  progressUnitForType,
+  providerStatusToLibrary,
+} from "@/lib/format";
 
 export interface ActionResult<T = undefined> {
   ok: boolean;
@@ -147,6 +154,95 @@ export async function addTitleAction(input: {
   }
 }
 
+export async function addMangabakaTitleAction(input: {
+  mangabakaId: number;
+  status?: LibraryStatus;
+}): Promise<ActionResult<{ titleId: string }>> {
+  const user = await requireUser();
+  const id = z.number().int().positive().safeParse(input.mangabakaId);
+  if (!id.success) return { ok: false, error: "Invalid title." };
+
+  const series = await getMangabakaSeries(id.data);
+  if (!series) return { ok: false, error: "Could not fetch metadata from MangaBaka." };
+
+  const item = toDiscoverItem(series);
+  const db = getDb();
+  const ts = now();
+
+  try {
+    let titleId: string | undefined;
+
+    if (item.malId != null) {
+      const existing = await db
+        .select({ id: titles.id })
+        .from(titles)
+        .where(eq(titles.malId, item.malId))
+        .limit(1);
+      titleId = existing[0]?.id;
+    }
+
+    if (!titleId) {
+      const existing = await db
+        .select({ id: titles.id })
+        .from(titles)
+        .where(
+          and(
+            eq(titles.source, "MANGABAKA"),
+            sql`lower(${titles.primaryTitle}) = lower(${item.title})`,
+          ),
+        )
+        .limit(1);
+      titleId = existing[0]?.id;
+    }
+
+    if (!titleId) {
+      const inserted = await db
+        .insert(titles)
+        .values({
+          source: "MANGABAKA",
+          malId: item.malId,
+          primaryTitle: item.title,
+          englishTitle: item.englishTitle,
+          japaneseTitle: item.japaneseTitle,
+          mediaType: item.mediaType,
+          synopsis: item.synopsis,
+          status: item.status,
+          startDate: item.startDate,
+          endDate: item.endDate,
+          year: item.year,
+          chapterCount: item.chapterCount,
+          volumeCount: item.volumeCount,
+          coverUrl: item.coverUrl,
+          score: item.score,
+          metadataRefreshedAt: ts,
+        })
+        .returning({ id: titles.id });
+      titleId = inserted[0]!.id;
+    }
+
+    const status = input.status ?? defaultStatusForType(item.mediaType);
+    await db
+      .insert(userLibrary)
+      .values({ userId: user.id, titleId, status, isFavorite: false })
+      .onConflictDoUpdate({
+        target: [userLibrary.userId, userLibrary.titleId],
+        set: { status, updatedAt: ts },
+      });
+
+    await db
+      .insert(userProgress)
+      .values({ userId: user.id, titleId })
+      .onConflictDoNothing({ target: [userProgress.userId, userProgress.titleId] });
+
+    revalidatePath("/discover");
+    revalidatePath("/library");
+    revalidatePath("/");
+    return { ok: true, data: { titleId } };
+  } catch (err) {
+    return { ok: false, error: (err as Error).message };
+  }
+}
+
 export async function updateStatusAction(input: {
   titleId: string;
   status: LibraryStatus;
@@ -194,6 +290,106 @@ export async function removeFromLibraryAction(input: {
   revalidatePath("/library");
   revalidatePath(`/title/${input.titleId}`);
   return { ok: true };
+}
+
+export async function importFromProviderAction(): Promise<
+  ActionResult<{ imported: number; skipped: number }>
+> {
+  const user = await requireUser();
+  const db = getDb();
+
+  await ensureMangabakaSynced(user.id);
+
+  const entries = await db
+    .select()
+    .from(providerEntries)
+    .where(
+      and(
+        eq(providerEntries.userId, user.id),
+        eq(providerEntries.provider, "mangabaka"),
+      ),
+    );
+
+  if (entries.length === 0) {
+    return { ok: false, error: "Nothing to import — your MangaBaka list is empty." };
+  }
+
+  let imported = 0;
+  let skipped = 0;
+  const ts = now();
+
+  for (const entry of entries) {
+    try {
+      const mediaType: MediaType = entry.mediaType ?? "MANGA";
+
+      let titleId: string | undefined;
+      if (entry.malId != null) {
+        const existing = await db
+          .select({ id: titles.id })
+          .from(titles)
+          .where(eq(titles.malId, entry.malId))
+          .limit(1);
+        titleId = existing[0]?.id;
+      }
+
+      if (!titleId) {
+        const inserted = await db
+          .insert(titles)
+          .values({
+            source: "MANGABAKA",
+            malId: entry.malId,
+            primaryTitle: entry.title,
+            mediaType,
+            coverUrl: entry.coverUrl,
+            metadataRefreshedAt: ts,
+          })
+          .returning({ id: titles.id });
+        titleId = inserted[0]!.id;
+      }
+
+      const status = providerStatusToLibrary(entry.status, mediaType);
+      await db
+        .insert(userLibrary)
+        .values({ userId: user.id, titleId, status, isFavorite: false })
+        .onConflictDoUpdate({
+          target: [userLibrary.userId, userLibrary.titleId],
+          set: { status, updatedAt: ts },
+        });
+
+      const unit = progressUnitForType(mediaType);
+      const patch: ProgressPatch =
+        entry.progressValue == null
+          ? {}
+          : unit === "EPISODE"
+            ? { lastOpenedEpisode: entry.progressValue }
+            : { lastOpenedChapter: entry.progressValue };
+
+      await db
+        .insert(userProgress)
+        .values({ userId: user.id, titleId, ...patch, updatedBy: "GENERIC" })
+        .onConflictDoNothing({ target: [userProgress.userId, userProgress.titleId] });
+
+      if (entry.progressValue != null) {
+        await db
+          .update(userProgress)
+          .set({ ...patch, updatedBy: "GENERIC", updatedAt: ts })
+          .where(
+            and(
+              eq(userProgress.userId, user.id),
+              eq(userProgress.titleId, titleId),
+            ),
+          );
+      }
+
+      imported += 1;
+    } catch {
+      skipped += 1;
+    }
+  }
+
+  revalidatePath("/library");
+  revalidatePath("/");
+  return { ok: true, data: { imported, skipped } };
 }
 
 type ProgressPatch = {

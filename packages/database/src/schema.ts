@@ -740,6 +740,62 @@ export const aiConversations = pgTable(
   (t) => [index("ai_conversations_user_idx").on(t.userId)],
 );
 
+export const mangabakaSeries = pgTable(
+  "mangabaka_series",
+  {
+    id: integer("id").primaryKey(),
+    mediaType: mediaTypeEnum("media_type"),
+    state: varchar("state", { length: 24 }).notNull().default("active"),
+    primaryTitle: text("primary_title").notNull(),
+    englishTitle: text("english_title"),
+    nativeTitle: text("native_title"),
+    japaneseTitle: text("japanese_title"),
+    synopsis: text("synopsis"),
+    status: mediaStatusEnum("status"),
+    startDate: date("start_date"),
+    endDate: date("end_date"),
+    year: integer("year"),
+    coverUrl: text("cover_url"),
+    rating: doublePrecision("rating"),
+    popularity: integer("popularity"),
+    popularity1d: integer("popularity_1d"),
+    popularity1w: integer("popularity_1w"),
+    popularity1mo: integer("popularity_1mo"),
+    popularity3mo: integer("popularity_3mo"),
+    popularity6mo: integer("popularity_6mo"),
+    popularity1y: integer("popularity_1y"),
+    genres: text("genres").array().notNull().default(sql`'{}'::text[]`),
+    tags: jsonb("tags").$type<string[]>(),
+    authors: text("authors").array().notNull().default(sql`'{}'::text[]`),
+    artists: text("artists").array().notNull().default(sql`'{}'::text[]`),
+    publishers: jsonb("publishers").$type<
+      { id: number; name: string; language: string | null }[]
+    >(),
+    malId: integer("mal_id"),
+    anilistId: integer("anilist_id"),
+    totalChapters: integer("total_chapters"),
+    finalVolume: integer("final_volume"),
+    contentRating: varchar("content_rating", { length: 16 }),
+    isLicensed: boolean("is_licensed").notNull().default(false),
+    hasAnime: boolean("has_anime").notNull().default(false),
+    canonicalUrl: text("canonical_url"),
+    lastUpdatedAt: timestamp("last_updated_at", { withTimezone: true }),
+    ingestedAt: timestamp("ingested_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("mangabaka_series_media_type_idx").on(t.mediaType),
+    index("mangabaka_series_year_idx").on(t.year),
+    index("mangabaka_series_popularity_idx").on(t.popularity),
+    index("mangabaka_series_rating_idx").on(t.rating),
+    index("mangabaka_series_mal_idx").on(t.malId),
+    index("mangabaka_series_anilist_idx").on(t.anilistId),
+    index("mangabaka_series_genres_gin").using("gin", t.genres),
+    index("mangabaka_series_tags_gin").using("gin", t.tags),
+  ],
+);
+
 export const usersRelations = relations(users, ({ many }) => ({
   sessions: many(sessions),
   oauthAccounts: many(userOauthAccounts),

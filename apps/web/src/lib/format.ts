@@ -1,4 +1,4 @@
-import type { LibraryStatus, MediaType, ProgressUnit } from "@ambl/types";
+import type { LibraryStatus, MediaStatus, MediaType, ProgressUnit } from "@ambl/types";
 
 export const LIBRARY_STATUSES: LibraryStatus[] = [
   "CURRENTLY_WATCHING",
@@ -79,6 +79,70 @@ export function defaultStatusForType(type: MediaType): LibraryStatus {
 
 export function planStatusForType(type: MediaType): LibraryStatus {
   return type === "ANIME" ? "PLAN_TO_WATCH" : "PLAN_TO_READ";
+}
+
+export function mediaStatusLabel(status: MediaStatus): string {
+  switch (status) {
+    case "FINISHED":
+      return "Finished";
+    case "ONGOING":
+      return "Ongoing";
+    case "NOT_YET_RELEASED":
+      return "Not yet released";
+    case "HIATUS":
+      return "Hiatus";
+    case "CANCELLED":
+      return "Cancelled";
+  }
+}
+
+export function mediaStatusBadge(
+  status: MediaStatus,
+): "secondary" | "success" | "warning" | "danger" {
+  switch (status) {
+    case "ONGOING":
+      return "success";
+    case "HIATUS":
+      return "warning";
+    case "CANCELLED":
+      return "danger";
+    default:
+      return "secondary";
+  }
+}
+
+export function providerStatusToLibrary(
+  state: string | null | undefined,
+  type: MediaType,
+): LibraryStatus {
+  const s = (state ?? "").trim().toLowerCase().replace(/[\s-]+/g, "_");
+  switch (s) {
+    case "reading":
+    case "rereading":
+    case "watching":
+    case "rewatching":
+    case "current":
+    case "in_progress":
+      return defaultStatusForType(type);
+    case "completed":
+    case "complete":
+    case "finished":
+      return "COMPLETED";
+    case "plan_to_read":
+    case "plan_to_watch":
+    case "planned":
+    case "planning":
+      return planStatusForType(type);
+    case "on_hold":
+    case "hold":
+    case "paused":
+      return "ON_HOLD";
+    case "dropped":
+    case "abandoned":
+      return "DROPPED";
+    default:
+      return defaultStatusForType(type);
+  }
 }
 
 export function libraryStatusLabel(status: LibraryStatus): string {

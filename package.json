@@ -17,9 +17,11 @@
     "start": "npm --workspace apps/web run start",
     "typecheck": "tsc -p packages/types --noEmit && tsc -p packages/database --noEmit && tsc -p packages/providers --noEmit && tsc -p apps/web --noEmit",
     "db:generate": "npm --workspace packages/database run db:generate",
-    "db:migrate": "npm --workspace packages/database run db:migrate"
+    "db:migrate": "npm --workspace packages/database run db:migrate",
+    "ingest:mangabaka": "tsx scripts/ingest-mangabaka.ts"
   },
   "devDependencies": {
+    "tar-stream": "^3.2.2",
     "typescript": "^5.7.2"
   },
   "dependencies": {

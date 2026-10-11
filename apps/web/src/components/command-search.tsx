@@ -8,7 +8,13 @@ import { addTitleAction } from "@/actions/library";
 import { Badge } from "@/components/ui/badge";
 import { ProviderIcon } from "@/components/provider-icon";
 import { cn } from "@/lib/utils";
-import { defaultStatusForType, mediaTypeLabel, planStatusForType } from "@/lib/format";
+import {
+  defaultStatusForType,
+  mediaStatusBadge,
+  mediaStatusLabel,
+  mediaTypeLabel,
+  planStatusForType,
+} from "@/lib/format";
 
 interface SearchItem extends SearchResultItem {
   titleId: string | null;
@@ -160,7 +166,7 @@ export function CommandSearch() {
                     <div
                       key={key}
                       className={cn(
-                        "group flex items-center gap-3 rounded-xl p-2 transition-colors",
+                        "group flex items-start gap-3 rounded-xl p-2 transition-colors",
                         !inLibrary && "cursor-pointer hover:bg-accent/60",
                       )}
                       role="button"
@@ -181,32 +187,61 @@ export function CommandSearch() {
                           alt=""
                           loading="lazy"
                           referrerPolicy="no-referrer"
-                          className="h-14 w-10 shrink-0 rounded-md object-cover ring-1 ring-border"
+                          className="h-[76px] w-[54px] shrink-0 rounded-md object-cover ring-1 ring-border"
                         />
                       ) : (
-                        <div className="flex h-14 w-10 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                        <div className="flex h-[76px] w-[54px] shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
                           <ImageOff className="h-4 w-4" />
                         </div>
                       )}
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
                           <p className="truncate text-sm font-medium">{item.title}</p>
                           {progress && (
-                            <ProviderIcon
-                              provider={progress.provider}
-                              title={`Tracked in ${progress.label}`}
-                            />
+                            <span
+                              title={`Tracked in ${progress.label}${progress.status ? ` · ${progress.status}` : ""}`}
+                              className={cn(
+                                "inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                                progress.provider === "mangabaka"
+                                  ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                                  : "bg-sky-500/15 text-sky-700 dark:text-sky-300",
+                              )}
+                            >
+                              <ProviderIcon provider={progress.provider} />
+                              {progress.label}
+                              {progress.text ? ` · ${progress.text}` : ""}
+                            </span>
                           )}
                         </div>
-                        <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                        {item.englishTitle && item.englishTitle !== item.title && (
+                          <p className="truncate text-xs text-muted-foreground">
+                            {item.englishTitle}
+                          </p>
+                        )}
+                        {item.synopsis && (
+                          <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground/90">
+                            {item.synopsis}
+                          </p>
+                        )}
+                        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                           <Badge variant="outline">{mediaTypeLabel(item.mediaType)}</Badge>
-                          {item.year && <Badge variant="secondary">{item.year}</Badge>}
-                          {progress?.text && (
-                            <Badge className="bg-primary/15 text-primary">{progress.text}</Badge>
+                          {item.status && (
+                            <Badge variant={mediaStatusBadge(item.status)}>
+                              {mediaStatusLabel(item.status)}
+                            </Badge>
                           )}
+                          {item.year && <Badge variant="secondary">{item.year}</Badge>}
+                          {item.genres.slice(0, 3).map((genre) => (
+                            <span
+                              key={genre}
+                              className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground"
+                            >
+                              {genre}
+                            </span>
+                          ))}
                         </div>
                       </div>
-                      <div className="flex shrink-0 items-center gap-1.5">
+                      <div className="flex shrink-0 items-center gap-1.5 pt-0.5">
                         {inLibrary ? (
                           <Badge variant="success" className="gap-1">
                             <Check className="h-3 w-3" /> In library
