@@ -5,10 +5,10 @@ import {
   DISCOVER_FORMATS,
   DISCOVER_SORTS,
   DISCOVER_YEARS,
-  discoverSeries,
   type DiscoverFormat,
   type DiscoverSort,
 } from "@/lib/mangabaka";
+import { findDiscover } from "@/lib/discover";
 import { DiscoverCard } from "@/components/discover-card";
 import { EmptyState } from "@/components/empty-state";
 import { Pagination } from "@/components/pagination";
@@ -44,7 +44,7 @@ export default async function DiscoverPage({
   const rawPage = Number(sp.page ?? 1);
   const page = Number.isFinite(rawPage) && rawPage >= 1 ? Math.floor(rawPage) : 1;
 
-  const result = await discoverSeries({ format, year, sort, page });
+  const result = await findDiscover({ format, year, sort, page });
 
   const buildHref = (overrides: {
     format?: DiscoverFormat;
