@@ -3,7 +3,7 @@ import { z } from "zod";
 import { and, eq, inArray } from "drizzle-orm";
 import { getMetadataProvider, MangaBakaProvider } from "@ambl/providers";
 import { providerEntries, titles, userLibrary } from "@ambl/database";
-import type { ProviderProgressBadge, TrackerProvider } from "@ambl/types";
+import type { ProviderProgressBadge, TrackerProvider, SearchResultItem } from "@ambl/types";
 import { getDb } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { ensureMangabakaSynced } from "@/lib/provider-sync";
@@ -71,7 +71,7 @@ export async function GET(req: NextRequest) {
         type: parsed.data.type,
         limit: parsed.data.limit,
       });
-      allItems.push(...mangabakaItems.map((item) => ({ ...item, source: "mangabaka" })));
+      allItems.push(...mangabakaItems.map((item: SearchResultItem) => ({ ...item, source: "mangabaka" })));
     } catch (err) {
       console.warn("MangaBaka search failed:", err);
     }
@@ -92,7 +92,7 @@ export async function GET(req: NextRequest) {
         { status: 502 },
       );
     }
-    allItems.push(...items.map((item) => ({ ...item, source: "mal" })));
+    allItems.push(...items.map((item: SearchResultItem) => ({ ...item, source: "mal" })));
   }
 
   // Deduplicate by MAL ID and AniList ID
