@@ -5,18 +5,17 @@ from typing import Any
 from fastapi import Body, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
-from scrapy.crawler import CrawlerProcess
 
 from . import config
-from .resolver import media_hint, ollama_available, ollama_normalize, search_mal
-from .spiders import PageSpider
+from .crawl_once import crawl
+from .resolver import media_hint, ollama_available, ollama_normalize, search_series
 from .store import url_in_cooldown
 from .webfwd import forwarder, get_bearer
 
 app = FastAPI(
     title="AniManga BuckList Engine",
-    description="Scrapy + MAL detection engine for the tracker extension and Android app.",
-    version="1.3.0",
+    description="httpx + Scrapy detection, MangaBaka-backed MAL resolution.",
+    version="1.4.0",
 )
 
 app.add_middleware(
@@ -31,17 +30,7 @@ _spider_lock = threading.Lock()
 
 def run_spider(url: str) -> dict:
     with _spider_lock:
-        process = CrawlerProcess(
-            {
-                "LOG_LEVEL": "ERROR",
-                "TELNETCONSOLE_ENABLED": False,
-                "ROBOTSTXT_OBEY": False,
-            }
-        )
-        spider = PageSpider(url=url)
-        process.crawl(spider)
-        process.start()
-        return spider.head
+        return crawl(url)
 
 
 def _pick_title(scrape: dict, payload: dict) -> tuple[str, list[str]]:
@@ -124,7 +113,7 @@ def scrape(request: Request, payload: dict = Body(default={})) -> Response:
     scrape_state: dict[str, Any] = {"fetch": None}
     try:
         scrape_state["fetch"] = run_spider(url)
-    except Exception as exc:  # scrapy/reactor hiccups must never break tracking
+    except Exception as exc:  # fetch/parse hiccups must never break tracking
         scrape_state["fetch"] = {"ok": False, "error": str(exc)}
     scrape = scrape_state["fetch"] or {}
 
@@ -139,11 +128,11 @@ def scrape(request: Request, payload: dict = Body(default={})) -> Response:
 
     mal_match = None
     if primary:
-        mal_match = search_mal(primary, media, alternates)
+        mal_match = search_series(primary, media, alternates)
         if not mal_match and ollama_available():
             normalized = ollama_normalize(primary, alternates)
             if normalized:
-                mal_match = search_mal(normalized, media, [primary])
+                mal_match = search_series(normalized, media, [primary])
 
     final_title = primary or str(payload.get("title") or "")
     title_candidates: list[str] = []

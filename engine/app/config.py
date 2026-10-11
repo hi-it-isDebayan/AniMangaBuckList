@@ -5,15 +5,21 @@ APP_DIR = Path(__file__).resolve().parent
 ENGINE_ROOT = APP_DIR.parent
 
 SITE_URL = os.environ.get("AMBL_SITE_URL", "https://animanga.debayandas.in").rstrip("/")
-JIKAN_BASE = "https://api.jikan.moe/v4"
 ENGINE_PORT = int(os.environ.get("ENGINE_PORT", "8000"))
+
+# Title resolution now goes through MangaBaka (Jikan/api.jikan.moe is unreachable
+# from the engine host). MangaBaka is reachable and exposes source.my_anime_list.id.
+MANGABAKA_BASE = os.environ.get("MANGABAKA_BASE", "https://api.mangabaka.org").rstrip("/")
+MANGABAKA_API_KEY = os.environ.get("MANGABAKA_API_KEY", "").strip()
 
 CACHE_DIR = ENGINE_ROOT / "data"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
 CACHE_DB = os.environ.get("ENGINE_CACHE_DB", str(CACHE_DIR / "cache.sqlite3"))
 
 URL_COOLDOWN_SECONDS = int(os.environ.get("ENGINE_URL_COOLDOWN_SECONDS", "35"))
-JIKAN_RATE_SECONDS = float(os.environ.get("ENGINE_JIKAN_RATE", "1.0"))
+RESOLVE_RATE_SECONDS = float(
+    os.environ.get("ENGINE_RESOLVE_RATE", os.environ.get("ENGINE_JIKAN_RATE", "0.5"))
+)
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.2:3b")
 

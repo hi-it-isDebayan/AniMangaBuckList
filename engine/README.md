@@ -1,8 +1,19 @@
 # AniManga BuckList Engine
 
-Self-hosted detection engine for the tracker extension and Android app. Runs a
-Scrapy spider on the page you are viewing, cross-checks the title against
-MyAnimeList (Jikan v4), and reports progress + browse history to the web app.
+Self-hosted detection engine for the tracker extension and Android app. Fetches
+the page you are viewing with httpx, parses title/chapter with the Scrapy
+`PageSpider`, cross-checks the title against MangaBaka (which maps to a
+MyAnimeList id), and reports progress + browse history to the web app.
+
+Note: Scrapy 2.19 never installs a Twisted reactor under uvicorn on this Windows
+setup, so crawls do not start via `CrawlerProcess`. `app/crawl_once.py` downloads
+with httpx and feeds an `HtmlResponse` to the spider instead.
+
+Title resolution uses MangaBaka (`api.mangabaka.org`, reachable from this host)
+rather than Jikan (`api.jikan.moe`, currently times out here). MangaBaka returns
+`source.my_anime_list.id` in search results, which the pipeline uses for
+`malId`. Optional `x-api-key` header via `MANGABAKA_API_KEY`; search works
+without it.
 
 ## Run (persistent background)
 
@@ -39,10 +50,12 @@ python process before re-running the task.
 | --- | --- |
 | `AMBL_SITE_URL` | `https://animanga.debayandas.in` |
 | `ENGINE_PORT` | `8000` |
+| `MANGABAKA_BASE` | `https://api.mangabaka.org` |
+| `MANGABAKA_API_KEY` | *(optional)* PAT for `x-api-key` header |
 | `AMBL_USE_OLLAMA` | `1` |
 | `OLLAMA_URL` | `http://127.0.0.1:11434` |
 | `OLLAMA_MODEL` | `llama3.2:3b` |
-| `AMBL_JIKAN_RATE` | `1.0` (requests/sec) |
+| `ENGINE_RESOLVE_RATE` | `0.5` (requests/sec to MangaBaka) |
 
-Jikan search results are cached 24h in `engine/data/cache.sqlite3`. The same URL
+MangaBaka search results are cached 24h in `engine/data/cache.sqlite3`. The same URL
 is skipped (35s cooldown) on repeat visits so episodes/chapters do not double-count.

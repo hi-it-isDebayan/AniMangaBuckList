@@ -59,8 +59,8 @@ def media_hint(unit: str | None, host: str) -> str:
 def _throttle() -> None:
     with _lock:
         elapsed = time.time() - _last_request[0]
-        if elapsed < config.JIKAN_RATE_SECONDS:
-            time.sleep(max(0.0, config.JIKAN_RATE_SECONDS - elapsed))
+        if elapsed < config.RESOLVE_RATE_SECONDS:
+            time.sleep(max(0.0, config.RESOLVE_RATE_SECONDS - elapsed))
         _last_request[0] = time.time()
 
 
@@ -72,49 +72,86 @@ def _token_overlap(a: str, b: str) -> float:
     return len(ta & tb) / max(len(ta), len(tb))
 
 
-def _jikan(query: str, media: str) -> dict | None:
+def _mangabaka(query: str) -> list[dict]:
+    """Search the MangaBaka series DB (reachable here; Jikan is not)."""
     _throttle()
+    headers = {"accept": "application/json", "User-Agent": config.USER_AGENT}
+    if config.MANGABAKA_API_KEY:
+        headers["x-api-key"] = config.MANGABAKA_API_KEY
     try:
-        with httpx.Client(timeout=12, headers={"User-Agent": config.USER_AGENT}) as client:
+        with httpx.Client(timeout=12, headers=headers) as client:
             resp = client.get(
-                f"{config.JIKAN_BASE}/{media}",
-                params={
-                    "q": query,
-                    "limit": 5,
-                    "order_by": "members",
-                    "sort": "desc",
-                },
+                f"{config.MANGABAKA_BASE}/v1/series/search",
+                params={"q": query},
             )
             if resp.status_code != 200:
-                return None
-            data = resp.json()
-            results = ((data or {}).get("data") or [])
-            return results[0] if results else None
+                return []
+            data = (resp.json() or {}).get("data") or []
+            if isinstance(data, dict):
+                data = [data]
+            return [node for node in data if isinstance(node, dict)]
     except Exception:
-        return None
+        return []
+
+
+def _series_titles(node: dict) -> list[str]:
+    titles: list[str] = []
+    for key in ("title", "romanized_title", "native_title"):
+        val = node.get(key)
+        if isinstance(val, str) and val:
+            titles.append(val)
+    secondary = node.get("secondary_titles")
+    if isinstance(secondary, list):
+        titles.extend(t for t in secondary if isinstance(t, str))
+    elif isinstance(secondary, str):
+        titles.append(secondary)
+    for entry in node.get("titles") or []:
+        if isinstance(entry, dict) and entry.get("title"):
+            titles.append(entry["title"])
+    return list(dict.fromkeys(t for t in titles if t))
 
 
 def _to_match(node: dict | None, media: str) -> dict | None:
     if not node:
         return None
-    images = ((node.get("images") or {}).get("jpg") or {})
+    mal_id = ((node.get("source") or {}).get("my_anime_list") or {}).get("id")
+    if not mal_id:
+        return None
+    cover = node.get("cover") or {}
+    cover_url = (
+        ((cover.get("x250") or {}).get("x1"))
+        or ((cover.get("raw") or {}).get("url"))
+        or ((cover.get("x150") or {}).get("x1"))
+        or ""
+    )
+    rating = node.get("rating")
+    try:
+        score = round(float(rating) / 10.0, 2) if rating is not None else None
+    except (TypeError, ValueError):
+        score = None
+    media_lower = (media or "").lower()
     return {
-        "malId": node.get("mal_id"),
-        "title": node.get("title_english") or node.get("title") or "",
-        "mediaType": "ANIME" if media == "anime" else "MANGA",
-        "coverUrl": images.get("large_image_url") or images.get("image_url") or "",
-        "synopsis": node.get("synopsis") or "",
-        "score": node.get("score"),
-        "episodes": node.get("episodes") or node.get("num_episodes"),
-        "chapters": node.get("chapters"),
+        "malId": mal_id,
+        "title": node.get("title") or node.get("romanized_title") or "",
+        "mediaType": "ANIME" if media_lower == "anime" else "MANGA",
+        "coverUrl": cover_url,
+        "synopsis": node.get("description") or "",
+        "score": score,
+        "episodes": None,
+        "chapters": node.get("total_chapters"),
     }
 
 
-def search_mal(title: str, media: str, alternates: list[str] | None = None) -> dict | None:
+def search_series(title: str, media: str, alternates: list[str] | None = None) -> dict | None:
+    """Resolve a series title to a MAL id via MangaBaka.
+
+    Media is a loose hint ("MANGA"/"ANIME"); MangaBaka aggregates manga/novel
+    metadata, so an "ANIME" hit resolves to the source manga's MAL entry.
+    """
     query = re.sub(r"\s+", " ", (title or "")).strip().rstrip(".:")
     if not query:
         for alt in alternates or []:
-            query = re.sub(r"\s+", " ", alt).strip()
+            query = re.sub(r"\s+", " ", alt or "").strip()
             if query:
                 break
     if not query or len(query) < 2:
@@ -136,15 +173,18 @@ def search_mal(title: str, media: str, alternates: list[str] | None = None) -> d
     best: dict | None = None
     best_overlap = 0.0
     for cand in candidates[:4]:
-        node = _jikan(cand, media)
-        match = _to_match(node, media)
-        if not match:
-            continue
-        overlap = _token_overlap(cand, match["title"])
-        if overlap > best_overlap:
-            best = match
-            best_overlap = overlap
-        if overlap >= 0.6:
+        for node in _mangabaka(cand):
+            match = _to_match(node, media)
+            if not match:
+                continue
+            overlap = max(
+                (_token_overlap(cand, t) for t in _series_titles(node)),
+                default=0.0,
+            )
+            if overlap > best_overlap:
+                best = match
+                best_overlap = overlap
+        if best_overlap >= 0.6:
             break
 
     if best:
@@ -152,6 +192,10 @@ def search_mal(title: str, media: str, alternates: list[str] | None = None) -> d
 
         mal_cache_set(cache_key, json.dumps(best, ensure_ascii=False))
     return best
+
+
+def search_mal(title: str, media: str, alternates: list[str] | None = None) -> dict | None:
+    return search_series(title, media, alternates)
 
 
 def ollama_available() -> bool:

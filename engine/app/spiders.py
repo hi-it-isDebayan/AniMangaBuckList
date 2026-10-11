@@ -95,10 +95,16 @@ class PageSpider(scrapy.Spider):
         self.head = {"ok": False, "error": "unreachable"}
 
     def start_requests(self):
+        if not self.url:
+            self.head = {"ok": False, "error": "missing url"}
+            return
         yield scrapy.Request(self.url, callback=self.parse_page, errback=self.errback, dont_filter=True)
 
+    def errback_message(self, message: str) -> None:
+        self.head = {"ok": False, "error": message}
+
     def errback(self, failure):
-        self.head = {"ok": False, "error": str(failure.getErrorMessage() or failure.value)}
+        self.errback_message(str(failure.getErrorMessage() or failure.value))
 
     def parse_page(self, response):
         html = response.text or ""
@@ -124,7 +130,6 @@ class PageSpider(scrapy.Spider):
                     twitter_title,
                     h1,
                     page_title,
-                    html[:4000],
                 ]
                 if t and len(t) >= 2
             )
