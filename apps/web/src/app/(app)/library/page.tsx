@@ -13,11 +13,11 @@ import {
 } from "@ambl/database";
 import { requireUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
-import { LibraryItemCard } from "@/components/library-item-card";
+import { LibraryItemRow } from "@/components/library-item-card";
 import { LibraryToolbar } from "@/components/library-toolbar";
 import { EmptyState } from "@/components/empty-state";
 import { Pagination } from "@/components/pagination";
-import { AddTitleDialog } from "@/components/add-title-dialog";
+import { SegmentedTabs } from "@/components/segmented-tabs";
 import { LIBRARY_STATUSES, GENRE_CHIP_COLORS, libraryStatusLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -193,9 +193,18 @@ export default async function LibraryPage({
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">Library</h1>
-        <AddTitleDialog />
+      <div className="flex items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Library</h1>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            {total} {total === 1 ? "title" : "titles"} tracked
+          </p>
+        </div>
+        <p className="hidden shrink-0 items-center gap-1 text-xs text-muted-foreground sm:flex">
+          Press
+          <kbd className="rounded-md border bg-muted px-1.5 py-0.5 font-medium">/</kbd>
+          to search &amp; add
+        </p>
       </div>
 
       <LibraryToolbar
@@ -206,23 +215,15 @@ export default async function LibraryPage({
         query={q}
       />
 
-      <div className="flex w-full items-center gap-1 overflow-x-auto rounded-xl border bg-card p-1 shadow-sm">
-        {MEDIA_TABS.map((tab) => (
-          <Link
-            key={tab.key || "all"}
-            href={buildTypeHref(tab.key)}
-            scroll={false}
-            className={cn(
-              "flex-1 whitespace-nowrap rounded-lg px-3 py-1.5 text-center text-sm font-medium transition-colors",
-              mediaType === tab.key
-                ? "bg-brand-gradient text-white shadow-sm"
-                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-            )}
-          >
-            {tab.label}
-          </Link>
-        ))}
-      </div>
+      <SegmentedTabs
+        items={MEDIA_TABS.map((tab) => ({
+          key: tab.key || "all",
+          label: tab.label,
+          href: buildTypeHref(tab.key),
+        }))}
+        active={mediaType || "all"}
+        variant="brand"
+      />
 
       {genreCounts.length > 0 && (
         <div className="-mx-1 flex items-center gap-1.5 overflow-x-auto px-1 pb-1">
@@ -240,24 +241,15 @@ export default async function LibraryPage({
         </div>
       )}
 
-      <div className="flex w-full items-center gap-1 overflow-x-auto rounded-lg border bg-muted/40 p-1">
-        {tabs.map((tab) => (
-          <Link
-            key={tab.key}
-            href={tab.key === "ALL" ? "/library" : buildHref(1).replace(/[?&]page=\d+/, "")}
-            scroll={false}
-            className={cn(
-              "flex-1 whitespace-nowrap rounded-md px-3 py-1.5 text-center text-sm font-medium transition-colors",
-              status === tab.key
-                ? "bg-card text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {tab.label}
-            <span className="ml-1.5 text-xs text-muted-foreground">{tab.count}</span>
-          </Link>
-        ))}
-      </div>
+      <SegmentedTabs
+        items={tabs.map((tab) => ({
+          key: tab.key,
+          label: tab.label,
+          count: tab.count,
+          href: tab.key === "ALL" ? "/library" : buildHref(1).replace(/[?&]page=\d+/, ""),
+        }))}
+        active={status}
+      />
 
       {rows.length === 0 ? (
         <EmptyState
@@ -269,17 +261,16 @@ export default async function LibraryPage({
           }
           description={
             status === "ALL" && !q && !mediaType && !tag
-              ? "Search MyAnimeList and add anime and manga you follow."
+              ? "Use the search bar at the bottom to find and add anime and manga you follow."
               : "Try adjusting the filters."
           }
-          action={status === "ALL" && !q && !mediaType && !tag ? <AddTitleDialog /> : undefined}
         />
       ) : (
-<div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-        {rows.map((row) => (
-          <LibraryItemCard key={row.titleId} item={row} />
-        ))}
-      </div>
+        <div className="space-y-2">
+          {rows.map((row) => (
+            <LibraryItemRow key={row.titleId} item={row} />
+          ))}
+        </div>
       )}
 
       <Pagination page={currentPage} totalPages={totalPages} buildHref={buildHref} />

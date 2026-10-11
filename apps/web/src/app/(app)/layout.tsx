@@ -2,7 +2,7 @@ import Link from "next/link";
 import { BookOpenText, Settings } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { AddTitleDialog } from "@/components/add-title-dialog";
+import { CommandSearch } from "@/components/command-search";
 import { AppNav } from "@/components/app-nav";
 import { Button } from "@/components/ui/button";
 
@@ -29,7 +29,6 @@ export default async function AppLayout({
           </Link>
           <AppNav />
           <div className="ml-auto flex items-center gap-1 sm:gap-2">
-            <AddTitleDialog />
             <ThemeToggle />
             <Link
               href="/profile"
@@ -61,7 +60,8 @@ export default async function AppLayout({
           </div>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6">{children}</main>
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-32 pt-6 sm:pb-28">{children}</main>
+      <CommandSearch />
     </div>
   );
 }
