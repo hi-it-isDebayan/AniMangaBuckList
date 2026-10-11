@@ -129,8 +129,8 @@ export function CommandSearch() {
   const showPanel = open && query.trim().length >= 2;
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40">
-      <div className="pointer-events-auto mx-auto w-full max-w-3xl px-3 pb-3 sm:pb-4">
+    <div className="sticky bottom-0 z-40 mt-auto">
+      <div className="mx-auto w-full max-w-3xl px-3 pb-3 sm:pb-4">
         <div ref={rootRef} className="relative">
           {showPanel && (
             <div className="absolute bottom-full mb-2 max-h-[60vh] w-full overflow-y-auto rounded-2xl border bg-card/95 p-1.5 shadow-2xl backdrop-blur-xl">

@@ -60,7 +60,7 @@ export default async function AppLayout({
           </div>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-32 pt-6 sm:pb-28">{children}</main>
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-6 pt-6">{children}</main>
       <CommandSearch />
     </div>
   );
