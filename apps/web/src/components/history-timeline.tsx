@@ -55,7 +55,7 @@ export function HistoryTimeline({ items }: { items: HistoryItem[] }) {
                 <span className="absolute -left-[21.5px] top-1.5 h-3 w-3 rounded-full border-2 border-emerald-500 bg-card" />
                 {item.coverUrl ? (
                   <Link
-                    href={item.malId ? "https://myanimelist.net/anime/" + item.malId : item.site}
+                    href={item.malId ? "https://myanimelist.net/anime/" + item.malId : (item.site ?? "#")}
                     className="shrink-0"
                     target="_blank"
                     rel="noopener noreferrer"

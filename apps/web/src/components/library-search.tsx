@@ -73,14 +73,13 @@ export function LibrarySearch() {
       <div className="relative">
         <input
           id="library-search-input"
-          ref={(el) => el}
+          ref={inputRef}
           type="text"
           placeholder="Search your library…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => setOpen(true)}
           onBlur={() => setTimeout(() => setOpen(false), 150)}
-          placeholder="Search your library…"
           aria-label="Search your library"
           className="h-9 w-full rounded-xl border bg-card/95 px-9 py-1.5 text-sm outline-none placeholder:text-muted-foreground bg-card/95 backdrop-blur-xl shadow-xl"
         />
