@@ -22,10 +22,7 @@ import {
 const DEFAULT_URL = "https://api.mangabaka.org/v1/database/series.jsonl.tar.gz";
 const MEMBER_NAME = "series.jsonl";
 
-const POPULARITY_CUTOFF = 20000;
-const RATING_FLOOR = 70;
-const RECENT_YEAR = new Date().getFullYear() - 1;
-const RECENT_MS = 90 * 24 * 60 * 60 * 1000;
+const DEFAULT_CATALOGUE_YEARS = 10;
 const BATCH_SIZE = 500; // smaller for safe streaming
 
 function loadEnvFile(file: string) {
@@ -81,20 +78,18 @@ function isReferenced(rec: MangabakaRoot, refs: RefSets): boolean {
   return false;
 }
 
-function shouldKeep(rec: MangabakaRoot, refs: RefSets, now: number): boolean {
-  if ((rec.content_rating || "").toLowerCase() === "erotica") return false;
+function shouldKeep(rec: MangabakaRoot, refs: RefSets, cutoffYear: number): boolean {
+  // Existing references always win over the catalogue age filter so older
+  // titles already used by the app remain available.
   if (isReferenced(rec, refs)) return true;
+  if ((rec.content_rating || "").toLowerCase() === "erotica") return false;
   if (rec.state && rec.state !== "active") return false;
-  const popular = rec.popularity?.global?.current;
-  if (typeof popular === "number" && popular <= POPULARITY_CUTOFF) return true;
-  if (typeof rec.rating === "number" && rec.rating >= RATING_FLOOR) return true;
+
+  // Keep the active catalogue to the rolling last N calendar years. Popularity
+  // and last-updated timestamps must not pull old titles back into the DB;
+  // older/unknown-year titles can still be fetched on demand from MangaBaka.
   const year = num(rec.year) ?? parseYear(rec.published?.start_date);
-  if (typeof year === "number" && year >= RECENT_YEAR) return true;
-  if (rec.last_updated_at) {
-    const t = Date.parse(rec.last_updated_at);
-    if (!Number.isNaN(t) && now - t <= RECENT_MS) return true;
-  }
-  return false;
+  return typeof year === "number" && year >= cutoffYear;
 }
 
 class JsonLineSplitter extends Transform {
@@ -123,6 +118,12 @@ async function main() {
   const dryRun = args["dry-run"] === "true";
   const limit = Number(args["limit"] ?? "0") || 0;
   const maxRecords = Number(args["max-records"] ?? "0") || 0;
+  const requestedYears = Number(args["years"] ?? DEFAULT_CATALOGUE_YEARS);
+  const catalogueYears = Number.isInteger(requestedYears) && requestedYears >= 1 && requestedYears <= 50
+    ? requestedYears
+    : DEFAULT_CATALOGUE_YEARS;
+  // Ten calendar years inclusive: in 2026, keep titles from 2017 onward.
+  const cutoffYear = new Date().getFullYear() - catalogueYears + 1;
   const url = args["url"] || DEFAULT_URL;
   const localPath = args["file"];
 
@@ -177,7 +178,6 @@ async function main() {
   console.log(`member: ${MEMBER_NAME}`);
 
   const splitter = new JsonLineSplitter();
-  let now = Date.now();
   let scanned = 0;
   let kept = 0;
   let filtered = 0;
@@ -212,7 +212,7 @@ async function main() {
         continue;
       }
       scanned++;
-      if (shouldKeep(rec, refs, now)) {
+      if (shouldKeep(rec, refs, cutoffYear)) {
         rows.push(toMangabakaSeriesRow(rec));
         kept++;
         if (rows.length >= BATCH_SIZE) {
@@ -231,7 +231,7 @@ async function main() {
     await flush();
   });
 
-  console.log(`done: scan=${scanned} kept=${kept} filtered=${filtered} err=${jsonErr} inserted=${inserted}`);
+  console.log(`done: scan=${scanned} kept=${kept} filtered=${filtered} err=${jsonErr} inserted=${inserted} cutoffYear=${cutoffYear}`);
   await sqlClient.end();
 }
 
