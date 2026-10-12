@@ -160,7 +160,11 @@ async function main() {
       }
     }
   } catch (e) {
-    console.warn("ref load skipped:", (e as Error).message);
+    // Fail closed: without reference IDs we cannot safely preserve older titles
+    // that are already represented in the app or a user's imported list.
+    console.error("Unable to load title references; refusing to ingest without retention safeguards.", e);
+    await sqlClient.end();
+    throw e;
   }
   console.log(`refs: mb=${refs.mb.size} mal=${refs.mal.size} ani=${refs.ani.size}`);
 
