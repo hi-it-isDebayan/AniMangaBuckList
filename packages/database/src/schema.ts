@@ -405,6 +405,31 @@ export const titles = pgTable(
   ],
 );
 
+export const titleExternalIds = pgTable(
+  "title_external_ids",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    titleId: uuid("title_id")
+      .notNull()
+      .references(() => titles.id, { onDelete: "cascade" }),
+    provider: varchar("provider", { length: 32 }).notNull(),
+    externalId: varchar("external_id", { length: 64 }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("title_external_ids_provider_external_uq").on(
+      t.provider,
+      t.externalId,
+    ),
+    index("title_external_ids_title_idx").on(t.titleId),
+  ],
+);
+
 export const titleAliases = pgTable(
   "title_aliases",
   {
@@ -839,7 +864,18 @@ export const titlesRelations = relations(titles, ({ many }) => ({
   externalLinks: many(externalLinks),
   releaseEvents: many(releaseEvents),
   notifications: many(notifications),
+  externalIds: many(titleExternalIds),
 }));
+
+export const titleExternalIdsRelations = relations(
+  titleExternalIds,
+  ({ one }) => ({
+    title: one(titles, {
+      fields: [titleExternalIds.titleId],
+      references: [titles.id],
+    }),
+  }),
+);
 
 export const userLibraryRelations = relations(userLibrary, ({ one }) => ({
   user: one(users, { fields: [userLibrary.userId], references: [users.id] }),

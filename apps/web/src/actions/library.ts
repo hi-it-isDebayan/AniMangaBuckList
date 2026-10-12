@@ -29,6 +29,14 @@ import { requireUser } from "@/lib/auth";
 import { ensureMangabakaSynced } from "@/lib/provider-sync";
 import { getMangabakaSeries, toDiscoverItem } from "@/lib/mangabaka";
 import {
+  findTitleIdByAnyLink,
+  linkExternalIds,
+  mangabakaLink,
+  malProviderKey,
+  metadataProviderKey,
+  anilistLink,
+} from "@/lib/external-ids";
+import {
   defaultStatusForType,
   progressUnitForType,
   providerStatusToLibrary,
@@ -86,14 +94,27 @@ export async function addTitleAction(input: {
   const source = provider.name.toUpperCase();
   const db = getDb();
 
+  const links = [
+    {
+      provider: metadataProviderKey(provider.name, item.mediaType),
+      externalId: item.malId,
+    },
+    anilistLink(item.anilistId),
+  ];
+
   let titleId: string | undefined;
   try {
-    const existing = await db
-      .select({ id: titles.id })
-      .from(titles)
-      .where(and(eq(titles.source, source), eq(titles.malId, item.malId)))
-      .limit(1);
-    titleId = existing[0]?.id;
+    titleId = (await findTitleIdByAnyLink(links)) ?? undefined;
+
+    if (!titleId) {
+      const existing = await db
+        .select({ id: titles.id })
+        .from(titles)
+        .where(and(eq(titles.source, source), eq(titles.malId, item.malId)))
+        .limit(1);
+      titleId = existing[0]?.id;
+    }
+
     if (!titleId) {
       const inserted = await db
         .insert(titles)
@@ -132,6 +153,8 @@ export async function addTitleAction(input: {
       }
     }
 
+    await linkExternalIds(titleId, links);
+
     const status = input.status ?? defaultStatusForType(item.mediaType);
     await db
       .insert(userLibrary)
@@ -169,10 +192,16 @@ export async function addMangabakaTitleAction(input: {
   const db = getDb();
   const ts = now();
 
-  try {
-    let titleId: string | undefined;
+  const links = [
+    mangabakaLink(item.id),
+    { provider: malProviderKey(item.mediaType), externalId: item.malId },
+    anilistLink(item.anilistId),
+  ];
 
-    if (item.malId != null) {
+  try {
+    let titleId = (await findTitleIdByAnyLink(links)) ?? undefined;
+
+    if (!titleId && item.malId != null) {
       const existing = await db
         .select({ id: titles.id })
         .from(titles)
@@ -220,6 +249,8 @@ export async function addMangabakaTitleAction(input: {
         .returning({ id: titles.id });
       titleId = inserted[0]!.id;
     }
+
+    await linkExternalIds(titleId, links);
 
     const status = input.status ?? defaultStatusForType(item.mediaType);
     await db
@@ -323,8 +354,15 @@ export async function importFromProviderAction(): Promise<
     try {
       const mediaType: MediaType = entry.mediaType ?? "MANGA";
 
-      let titleId: string | undefined;
-      if (entry.malId != null) {
+      const links = [
+        mangabakaLink(entry.externalId),
+        { provider: malProviderKey(mediaType), externalId: entry.malId },
+        anilistLink(entry.anilistId),
+      ];
+
+      let titleId = (await findTitleIdByAnyLink(links)) ?? undefined;
+
+      if (!titleId && entry.malId != null) {
         const existing = await db
           .select({ id: titles.id })
           .from(titles)
@@ -347,6 +385,8 @@ export async function importFromProviderAction(): Promise<
           .returning({ id: titles.id });
         titleId = inserted[0]!.id;
       }
+
+      await linkExternalIds(titleId, links);
 
       const status = providerStatusToLibrary(entry.status, mediaType);
       await db
