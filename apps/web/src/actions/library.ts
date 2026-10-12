@@ -275,6 +275,62 @@ export async function addMangabakaTitleAction(input: {
   }
 }
 
+export async function addExistingTitleAction(input: {
+  titleId: string;
+  status?: LibraryStatus;
+}): Promise<ActionResult<{ titleId: string; status: LibraryStatus }>> {
+  const user = await requireUser();
+  const titleId = z.string().uuid().safeParse(input.titleId);
+  if (!titleId.success) return { ok: false, error: "Invalid title." };
+  const status = input.status === undefined ? null : statusSchema.safeParse(input.status);
+  if (status && !status.success) return { ok: false, error: "Invalid status." };
+
+  const db = getDb();
+  const [titleRow] = await db
+    .select({ id: titles.id, mediaType: titles.mediaType })
+    .from(titles)
+    .where(eq(titles.id, titleId.data))
+    .limit(1);
+  if (!titleRow) return { ok: false, error: "Title not found." };
+
+  const [existing] = await db
+    .select({ status: userLibrary.status })
+    .from(userLibrary)
+    .where(
+      and(eq(userLibrary.userId, user.id), eq(userLibrary.titleId, titleId.data)),
+    )
+    .limit(1);
+
+  const resolvedStatus: LibraryStatus =
+    existing?.status ?? status?.data ?? defaultStatusForType(titleRow.mediaType);
+
+  if (!existing) {
+    await db
+      .insert(userLibrary)
+      .values({
+        userId: user.id,
+        titleId: titleId.data,
+        status: resolvedStatus,
+        isFavorite: false,
+      })
+      .onConflictDoNothing({
+        target: [userLibrary.userId, userLibrary.titleId],
+      });
+  }
+
+  await db
+    .insert(userProgress)
+    .values({ userId: user.id, titleId: titleId.data })
+    .onConflictDoNothing({
+      target: [userProgress.userId, userProgress.titleId],
+    });
+
+  revalidatePath("/library");
+  revalidatePath("/");
+  revalidatePath(`/title/${titleId.data}`);
+  return { ok: true, data: { titleId: titleId.data, status: resolvedStatus } };
+}
+
 export async function updateStatusAction(input: {
   titleId: string;
   status: LibraryStatus;
