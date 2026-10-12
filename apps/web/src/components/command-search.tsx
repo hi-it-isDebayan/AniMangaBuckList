@@ -147,7 +147,7 @@ export function CommandSearch() {
   const showPanel = open && query.trim().length >= 2;
 
   return (
-    <div className="sticky bottom-0 z-40 mt-auto">
+    <div data-command-search className="sticky bottom-0 z-40 mt-auto">
       <div className="mx-auto w-full max-w-3xl px-3 pb-3 sm:pb-4">
         <div ref={rootRef} className="relative">
           {showPanel && (
