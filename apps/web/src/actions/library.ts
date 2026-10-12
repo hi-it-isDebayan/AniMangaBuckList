@@ -188,11 +188,12 @@ export async function addMangabakaTitleAction(input: {
         .where(
           and(
             eq(titles.source, "MANGABAKA"),
+            eq(titles.mediaType, item.mediaType),
             sql`lower(${titles.primaryTitle}) = lower(${item.title})`,
           ),
         )
-        .limit(1);
-      titleId = existing[0]?.id;
+        .limit(2);
+      if (existing.length === 1) titleId = existing[0]!.id;
     }
 
     if (!titleId) {
