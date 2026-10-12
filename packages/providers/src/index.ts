@@ -15,7 +15,7 @@ export const providers = {
   jikan: new JikanProvider(),
   mal: new MALProvider(),
   anilist: new AniListProvider(),
-  mangabaka: new MangaBakaProvider(),
+  mangabaka: MangaBakaProvider,
 } as const;
 
 export function getMetadataProvider(): MetadataProvider {
