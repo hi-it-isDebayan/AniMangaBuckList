@@ -164,7 +164,7 @@ export const MangaBakaProvider = {
           ...(process.env.MANGABAKA_API_KEY?.trim() ? { "x-api-key": process.env.MANGABAKA_API_KEY?.trim() } : {}),
         },
         next: { revalidate: 1800 },
-      });
+      } as RequestInit & { next: { revalidate: number } });
       
       if (!res.ok) {
         return [];
