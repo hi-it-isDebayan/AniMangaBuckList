@@ -821,6 +821,25 @@ export const mangabakaSeries = pgTable(
   ],
 );
 
+export const titleComments = pgTable(
+  "title_comments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    seriesId: integer("series_id").notNull(),
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("title_comments_series_idx").on(t.seriesId),
+    index("title_comments_user_idx").on(t.userId),
+  ],
+);
+
 export const usersRelations = relations(users, ({ many }) => ({
   sessions: many(sessions),
   oauthAccounts: many(userOauthAccounts),
@@ -834,6 +853,11 @@ export const usersRelations = relations(users, ({ many }) => ({
   tags: many(tags),
   notifications: many(notifications),
   extensionTitleMatches: many(extensionTitleMatches),
+  comments: many(titleComments),
+}));
+
+export const titleCommentsRelations = relations(titleComments, ({ one }) => ({
+  user: one(users, { fields: [titleComments.userId], references: [users.id] }),
 }));
 
 export const userOauthAccountsRelations = relations(userOauthAccounts, ({ one }) => ({

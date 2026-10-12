@@ -80,17 +80,20 @@ export async function GET(req: NextRequest) {
   // Search MAL/Jikan/Anilist if requested
   if (source === "all" || source === "mal" || source === "anilist") {
     const provider = getMetadataProvider();
-    let items;
+    let items: SearchResultItem[] = [];
     try {
       items = await provider.search(parsed.data.q, {
         type: parsed.data.type,
         limit: parsed.data.limit,
       });
     } catch (err) {
-      return NextResponse.json(
-        { error: (err as Error).message },
-        { status: 502 },
-      );
+      console.warn("Metadata provider search failed:", err);
+      if (allItems.length === 0) {
+        return NextResponse.json(
+          { error: "Search is temporarily unavailable. Please try again.", items: [] },
+          { status: 502 },
+        );
+      }
     }
     allItems.push(...items.map((item: SearchResultItem) => ({ ...item, source: "mal" })));
   }

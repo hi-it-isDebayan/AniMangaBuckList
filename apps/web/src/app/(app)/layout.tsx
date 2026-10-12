@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BookOpenText, Settings } from "lucide-react";
+import { BookOpenText, LogOut, Settings } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { CommandSearch } from "@/components/command-search";
@@ -59,6 +59,12 @@ export default async function AppLayout({
                   <span className="hidden sm:inline">Settings</span>
                 </Button>
               </Link>
+              <form action="/api/auth/logout" method="post">
+                <Button type="submit" variant="ghost" size="sm" className="px-2" aria-label="Sign out" title="Sign out">
+                  <LogOut className="h-4 w-4" />
+                  <span className="hidden sm:inline">Sign out</span>
+                </Button>
+              </form>
             </div>
           </div>
         </header>
