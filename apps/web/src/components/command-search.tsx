@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, ImageOff, Loader2, Search, Sparkles } from "lucide-react";
 import type { LibraryStatus, MediaType, SearchResultItem } from "@ambl/types";
-import { addTitleAction } from "@/actions/library";
+import { addTitleAction, addMangabakaTitleAction } from "@/actions/library";
 import { Badge } from "@/components/ui/badge";
 import { ProviderIcon } from "@/components/provider-icon";
 import { cn } from "@/lib/utils";
@@ -24,7 +24,7 @@ interface SearchItem extends SearchResultItem {
 }
 
 function itemKey(item: SearchItem) {
-  return `${item.malId ?? ""}-${item.anilistId ?? ""}-${item.title}`;
+  return `${item.malId ?? ""}-${item.anilistId ?? ""}-${item.mangabakaId ?? ""}-${item.title}`;
 }
 
 const TYPE_TABS: { key: "MANGA" | "ANIME"; label: string }[] = [
@@ -119,18 +119,23 @@ export function CommandSearch() {
   }, [setOpen]);
 
   const add = async (item: SearchItem, status: LibraryStatus) => {
-    if (item.malId == null) {
+    const key = itemKey(item);
+    setPendingKey(key);
+    const res =
+      item.malId != null
+        ? await addTitleAction({
+            malId: item.malId,
+            mediaType: item.mediaType as MediaType,
+            status,
+          })
+        : item.mangabakaId != null
+          ? await addMangabakaTitleAction({ mangabakaId: item.mangabakaId, status })
+          : null;
+    setPendingKey(null);
+    if (!res) {
       setError("This title can't be added right now.");
       return;
     }
-    const key = itemKey(item);
-    setPendingKey(key);
-    const res = await addTitleAction({
-      malId: item.malId,
-      mediaType: item.mediaType as MediaType,
-      status,
-    });
-    setPendingKey(null);
     if (res.ok && res.data?.titleId) {
       setAdded((prev) => ({ ...prev, [key]: res.data!.titleId }));
       router.refresh();

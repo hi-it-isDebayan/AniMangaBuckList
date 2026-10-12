@@ -106,14 +106,16 @@ export async function GET(req: NextRequest) {
   }
 
   // Build provider progress badges
-  let byKey = new Map<string, string>();
+  const titleIdByMalId = new Map<number, string>();
   const malIds = uniqueItems.map((i) => i.malId).filter((m): m is number => m !== null);
   if (malIds.length > 0) {
     const known = await db
-      .select({ id: titles.id, malId: titles.malId, source: titles.source })
+      .select({ id: titles.id, malId: titles.malId })
       .from(titles)
       .where(inArray(titles.malId, malIds));
-    byKey = new Map(known.map((k) => [`${k.source}:${k.malId}`, k.id]));
+    for (const k of known) {
+      if (k.malId != null && !titleIdByMalId.has(k.malId)) titleIdByMalId.set(k.malId, k.id);
+    }
   }
 
   let byMalId = new Map<number, any[]>();
@@ -139,7 +141,7 @@ export async function GET(req: NextRequest) {
   }
 
   const enriched = uniqueItems.map((item) => {
-    const titleId = item.malId === null ? null : byKey.get(`${item.source}:${item.malId}`) ?? null;
+    const titleId = item.malId == null ? null : titleIdByMalId.get(item.malId) ?? null;
 
     const candidates = [
       ...(item.malId != null ? byMalId.get(item.malId) ?? [] : []),

@@ -62,6 +62,7 @@ export interface ProviderProgressBadge {
 
 export interface SearchResultItem {
   malId: number | null;
+  mangabakaId?: number | null;
   anilistId: number | null;
   title: string;
   englishTitle: string | null;
