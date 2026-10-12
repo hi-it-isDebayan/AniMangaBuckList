@@ -118,6 +118,7 @@ function toSearchResultItem(series: MangabakaSeries): SearchResultItem {
 
   return {
     id: series.id,
+    mangabakaId: series.id,
     title,
     nativeTitle: native && native !== title ? native : null,
     englishTitle: english,
@@ -164,7 +165,7 @@ export const MangaBakaProvider = {
           ...(process.env.MANGABAKA_API_KEY?.trim() ? { "x-api-key": process.env.MANGABAKA_API_KEY?.trim() } : {}),
         },
         next: { revalidate: 1800 },
-      });
+      } as RequestInit & { next: { revalidate: number } });
       
       if (!res.ok) {
         return [];
