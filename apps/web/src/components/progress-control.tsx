@@ -111,7 +111,7 @@ function ProgressRow({
         >
           <Plus className="h-3.5 w-3.5" />
         </Button>
-        {total != null && (
+        {total != null && total > 0 && (
           <span className="text-xs text-muted-foreground">/ {total}</span>
         )}
         <Button

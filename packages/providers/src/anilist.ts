@@ -5,6 +5,7 @@ import type {
   SearchResultItem,
 } from "@ambl/types";
 import type { MetadataProvider, SearchOptions } from "./types";
+import { normalizeCount } from "./counts";
 
 const GRAPHQL_URL = "https://graphql.anilist.co";
 
@@ -142,9 +143,9 @@ function toItem(media: AniListMedia, isAnime: boolean): SearchResultItem {
     mediaType: isAnime ? "ANIME" : mapMediaType(media.type, media.format),
     synopsis: media.description?.trim() || null,
     status: mapStatus(media.status),
-    episodeCount: isAnime ? media.episodes ?? null : null,
-    chapterCount: isAnime ? null : media.chapters ?? null,
-    volumeCount: isAnime ? null : media.volumes ?? null,
+    episodeCount: isAnime ? normalizeCount(media.episodes) : null,
+    chapterCount: isAnime ? null : normalizeCount(media.chapters),
+    volumeCount: isAnime ? null : normalizeCount(media.volumes),
     startDate: toDate(media.startDate),
     endDate: toDate(media.endDate),
     season: mapSeason(media.season),

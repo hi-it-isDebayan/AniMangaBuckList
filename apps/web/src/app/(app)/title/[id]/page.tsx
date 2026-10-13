@@ -66,6 +66,7 @@ import {
   summariseRankHistory,
 } from "@/lib/title-insights";
 import {
+  formatCount,
   formatDate,
   mediaStatusBadge,
   mediaStatusLabel,
@@ -409,8 +410,8 @@ export default async function TitlePage({
             {mangabakaRating != null && (
               <Stat label="MangaBaka score" value={mangabakaRating.toFixed(1)} hint="/ 10" />
             )}
-            {chapters != null && <Stat label="Chapters" value={String(chapters)} />}
-            {volumes != null && <Stat label="Volumes" value={String(volumes)} />}
+            {chapters != null && <Stat label="Chapters" value={formatCount(chapters)} />}
+            {volumes != null && <Stat label="Volumes" value={formatCount(volumes)} />}
           </div>
           {rankSeries.length >= 3 && (
             <div className="mt-5">
@@ -457,10 +458,10 @@ export default async function TitlePage({
           )}
           {title.year != null && <DetailItem label="Year">{title.year}</DetailItem>}
           {title.episodeCount != null && (
-            <DetailItem label="Episodes">{title.episodeCount}</DetailItem>
+            <DetailItem label="Episodes">{formatCount(title.episodeCount)}</DetailItem>
           )}
-          {chapters != null && <DetailItem label="Chapters">{chapters}</DetailItem>}
-          {volumes != null && <DetailItem label="Volumes">{volumes}</DetailItem>}
+          {chapters != null && <DetailItem label="Chapters">{formatCount(chapters)}</DetailItem>}
+          {volumes != null && <DetailItem label="Volumes">{formatCount(volumes)}</DetailItem>}
           {(title.startDate || title.endDate) && (
             <DetailItem label="Published">
               {formatDate(title.startDate)}

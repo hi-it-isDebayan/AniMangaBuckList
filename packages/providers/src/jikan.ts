@@ -5,6 +5,7 @@ import type {
   SearchResultItem,
 } from "@ambl/types";
 import type { MetadataProvider, SearchOptions } from "./types";
+import { normalizeCount } from "./counts";
 
 const BASE = "https://api.jikan.moe/v4";
 
@@ -228,9 +229,9 @@ function toItem(e: JikanAnimeEntry | JikanMangaEntry): SearchResultItem | null {
     mediaType: mediaType ?? "MANGA",
     synopsis: e.synopsis ?? null,
     status: mapStatus(e.status),
-    episodeCount: "episodes" in e ? e.episodes : null,
-    chapterCount: "chapters" in e ? e.chapters : null,
-    volumeCount: "volumes" in e ? e.volumes : null,
+    episodeCount: "episodes" in e ? normalizeCount(e.episodes) : null,
+    chapterCount: "chapters" in e ? normalizeCount(e.chapters) : null,
+    volumeCount: "volumes" in e ? normalizeCount(e.volumes) : null,
     startDate: getStart(e) ?? null,
     endDate: getEnd(e) ?? null,
     season: toSeason("season" in e ? e.season : null),

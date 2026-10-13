@@ -13,7 +13,7 @@ import {
 import type { MediaStatus, MediaType } from "@ambl/types";
 import { MediaTypeBadge } from "@/components/status-badge";
 import { Badge } from "@/components/ui/badge";
-import { formatDate, mediaStatusBadge, mediaStatusLabel } from "@/lib/format";
+import { formatCount, formatDate, mediaStatusBadge, mediaStatusLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 export interface TitleHeroLink {
@@ -168,17 +168,17 @@ export function TitleHero({
             <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-muted-foreground">
               {chapters != null && (
                 <span className="inline-flex items-center gap-1.5">
-                  <BookOpenText className="h-4 w-4" /> {chapters} chapters
+                  <BookOpenText className="h-4 w-4" /> {formatCount(chapters)} chapters
                 </span>
               )}
               {volumes != null && (
                 <span className="inline-flex items-center gap-1.5">
-                  <Layers className="h-4 w-4" /> {volumes} volumes
+                  <Layers className="h-4 w-4" /> {formatCount(volumes)} volumes
                 </span>
               )}
               {episodes != null && (
                 <span className="inline-flex items-center gap-1.5">
-                  <Users className="h-4 w-4" /> {episodes} episodes
+                  <Users className="h-4 w-4" /> {formatCount(episodes)} episodes
                 </span>
               )}
               {(startDate || endDate) && (
