@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Check, ImageOff, Loader2, Search, Sparkles } from "lucide-react";
 import type { LibraryStatus, MediaType, SearchResultItem } from "@ambl/types";
 import { addTitleAction, addMangabakaTitleAction } from "@/actions/library";
+import { selectAddSource } from "@/lib/add-source";
 import { Badge } from "@/components/ui/badge";
 import { ProviderIcon } from "@/components/provider-icon";
 import { cn } from "@/lib/utils";
@@ -123,20 +124,18 @@ export function CommandSearch() {
   const add = async (item: SearchItem, status: LibraryStatus) => {
     const key = itemKey(item);
     setPendingKey(key);
-    // Manga (manga/manhwa/manhua/novels) gets MangaBaka metadata: richer
-    // chapters, credits and stats. Anime isn't in MangaBaka's catalogue, so
-    // those keep MAL metadata.
-    const preferMangabaka = item.mediaType !== "ANIME" && item.mangabakaId != null;
-    const res = preferMangabaka
-      ? await addMangabakaTitleAction({ mangabakaId: item.mangabakaId!, status })
-      : item.malId != null
-        ? await addTitleAction({
-            malId: item.malId,
-            mediaType: item.mediaType as MediaType,
-            status,
-          })
-        : item.mangabakaId != null
-          ? await addMangabakaTitleAction({ mangabakaId: item.mangabakaId, status })
+    // Metadata source preference lives in `selectAddSource`: MangaBaka for
+    // manga-family titles (richer chapters/credits/stats), MAL otherwise.
+    const source = selectAddSource(item);
+    const res =
+      source === "mangabaka"
+        ? await addMangabakaTitleAction({ mangabakaId: item.mangabakaId!, status })
+        : source === "mal"
+          ? await addTitleAction({
+              malId: item.malId!,
+              mediaType: item.mediaType as MediaType,
+              status,
+            })
           : null;
     setPendingKey(null);
     if (!res) {

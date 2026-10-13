@@ -28,6 +28,7 @@ import { getDb } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { ensureMangabakaSynced } from "@/lib/provider-sync";
 import { getMangabakaSeries, toDiscoverItem } from "@/lib/mangabaka";
+import { ensureMangabakaTitle } from "@/lib/mangabaka-library";
 import {
   findTitleIdByAnyLink,
   linkExternalIds,
@@ -192,65 +193,8 @@ export async function addMangabakaTitleAction(input: {
   const db = getDb();
   const ts = now();
 
-  const links = [
-    mangabakaLink(item.id),
-    { provider: malProviderKey(item.mediaType), externalId: item.malId },
-    anilistLink(item.anilistId),
-  ];
-
   try {
-    let titleId = (await findTitleIdByAnyLink(links)) ?? undefined;
-
-    if (!titleId && item.malId != null) {
-      const existing = await db
-        .select({ id: titles.id })
-        .from(titles)
-        .where(eq(titles.malId, item.malId))
-        .limit(1);
-      titleId = existing[0]?.id;
-    }
-
-    if (!titleId) {
-      const existing = await db
-        .select({ id: titles.id })
-        .from(titles)
-        .where(
-          and(
-            eq(titles.source, "MANGABAKA"),
-            eq(titles.mediaType, item.mediaType),
-            sql`lower(${titles.primaryTitle}) = lower(${item.title})`,
-          ),
-        )
-        .limit(2);
-      if (existing.length === 1) titleId = existing[0]!.id;
-    }
-
-    if (!titleId) {
-      const inserted = await db
-        .insert(titles)
-        .values({
-          source: "MANGABAKA",
-          malId: item.malId,
-          primaryTitle: item.title,
-          englishTitle: item.englishTitle,
-          japaneseTitle: item.japaneseTitle,
-          mediaType: item.mediaType,
-          synopsis: item.synopsis,
-          status: item.status,
-          startDate: item.startDate,
-          endDate: item.endDate,
-          year: item.year,
-          chapterCount: item.chapterCount,
-          volumeCount: item.volumeCount,
-          coverUrl: item.coverUrl,
-          score: item.score,
-          metadataRefreshedAt: ts,
-        })
-        .returning({ id: titles.id });
-      titleId = inserted[0]!.id;
-    }
-
-    await linkExternalIds(titleId, links);
+    const { titleId } = await ensureMangabakaTitle(item);
 
     const status = input.status ?? defaultStatusForType(item.mediaType);
     await db
