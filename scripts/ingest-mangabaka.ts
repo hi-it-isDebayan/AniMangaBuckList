@@ -213,6 +213,9 @@ async function main() {
       }
       scanned++;
       if (shouldKeep(rec, refs, now)) {
+        // Enforce --limit exactly, including when it is not a multiple of BATCH_SIZE.
+        // The old batch-only check could overshoot the requested count by up to 499 rows.
+        if (limit && inserted + rows.length >= limit) break;
         rows.push(toMangabakaSeriesRow(rec));
         kept++;
         if (rows.length >= BATCH_SIZE) {
