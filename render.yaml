@@ -6,7 +6,8 @@ services:
     buildCommand: npm ci --include=dev && npm run build
     startCommand: npm run start
     healthCheckPath: /api/health
-    autoDeploy: true
+    # Deploy only after the GitHub checks (CI "verify": typecheck + build) pass.
+    autoDeployTrigger: checksPass
     envVars:
       - key: DATABASE_URL
         sync: false
@@ -19,6 +20,14 @@ services:
       - key: MAL_CLIENT_ID
         sync: false
       - key: MAL_CLIENT_SECRET
+        sync: false
+      - key: MAL_REDIRECT_URI
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
         sync: false
       - key: MANGABAKA_API_KEY
         sync: false
