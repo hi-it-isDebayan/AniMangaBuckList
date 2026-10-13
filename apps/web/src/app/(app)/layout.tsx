@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { BookOpenText, LogOut, Settings } from "lucide-react";
 import { requireUser } from "@/lib/auth";
+import { ensureBootstrapAdmin } from "@/lib/sources/service";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { CommandSearch } from "@/components/command-search";
 import { SearchLayout } from "@/components/search-layout";
@@ -15,6 +16,11 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   const user = await requireUser();
+
+  // Bootstrap the initial ADMIN server-side, against the authenticated verified
+  // email. Idempotent and cheap: the DB check only runs for the matching account
+  // until it already holds the role.
+  await ensureBootstrapAdmin(user.id);
 
   return (
     <SearchLayout>
