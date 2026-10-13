@@ -26,8 +26,8 @@ export default async function AppLayout({
     <SearchLayout>
       <div className="flex min-h-dvh flex-col">
         <header className="sticky top-0 z-40 border-b border-transparent bg-background/75 backdrop-blur-md supports-[backdrop-filter]:bg-background/75">
-          <div className="mx-auto flex h-14 w-full max-w-6xl items-center gap-2 px-3 sm:gap-3 sm:px-4">
-            <Link href="/" className="flex items-center gap-2.5 font-semibold">
+          <div className="mx-auto flex min-h-14 w-full max-w-6xl flex-wrap items-center gap-x-2 gap-y-1.5 px-3 py-1.5 sm:gap-x-3 sm:px-4">
+            <Link href="/" className="flex shrink-0 items-center gap-2.5 font-semibold">
               <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-gradient text-white shadow-glow">
                 <BookOpenText className="h-4.5 w-4.5" />
               </span>
@@ -36,7 +36,7 @@ export default async function AppLayout({
               </span>
             </Link>
             <AppNav />
-            <div className="ml-auto flex items-center gap-1 sm:gap-2">
+            <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
               <ThemeToggle />
               <Link
                 href="/profile"
