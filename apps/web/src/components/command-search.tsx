@@ -66,6 +66,7 @@ export function CommandSearch() {
       }
       const data = await res.json();
       setItems(data.items ?? []);
+      setAdded({});
     } catch (err) {
       if ((err as Error).name !== "AbortError") setError((err as Error).message);
     } finally {
@@ -81,9 +82,10 @@ export function CommandSearch() {
       setLoading(false);
       return;
     }
+    if (!open) return;
     const t = setTimeout(() => void runSearch(q, type, source), 350);
     return () => clearTimeout(t);
-  }, [query, type, source, runSearch]);
+  }, [query, type, source, open, runSearch]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
