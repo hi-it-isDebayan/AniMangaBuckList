@@ -3,7 +3,12 @@ import { SESSION_COOKIE, destroyCurrentSession } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
-function clearCookie(res: NextResponse): NextResponse {
+// Emit a RELATIVE redirect. Building the URL from `req.url` would leak the
+// platform-internal origin into the Location header (on Render that is
+// http://localhost:10000), sending users to an unreachable host after logout.
+function loginRedirect(): NextResponse {
+  const res = new NextResponse(null, { status: 307 });
+  res.headers.set("Location", "/login");
   res.cookies.set(SESSION_COOKIE, "", {
     httpOnly: true,
     sameSite: "lax",
@@ -14,12 +19,12 @@ function clearCookie(res: NextResponse): NextResponse {
   return res;
 }
 
-export async function POST(req: Request) {
+export async function POST() {
   await destroyCurrentSession();
-  const res = NextResponse.redirect(new URL("/login", req.url));
-  return clearCookie(res);
+  return loginRedirect();
 }
 
-export async function GET(req: Request) {
-  return POST(req);
+export async function GET() {
+  await destroyCurrentSession();
+  return loginRedirect();
 }
