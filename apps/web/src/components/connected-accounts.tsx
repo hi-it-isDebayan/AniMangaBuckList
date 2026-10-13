@@ -3,7 +3,6 @@
 import { useActionState, useState, useTransition } from "react";
 import { Check, LogOut, KeyRound } from "lucide-react";
 import { logoutAction } from "@/actions/auth";
-import { logoutAllSessionsAction } from "@/actions/settings";
 import { setPasswordAction, unlinkProviderAction, type OAuthActionState } from "@/actions/oauth";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
@@ -85,11 +84,6 @@ export function ConnectedAccounts({
           <form action={logoutAction}>
             <Button type="submit" variant="outline" size="sm">
               <LogOut className="h-3.5 w-3.5" /> Sign out this device
-            </Button>
-          </form>
-          <form action={logoutAllSessionsAction}>
-            <Button type="submit" variant="outline" size="sm" className="text-destructive">
-              <LogOut className="h-3.5 w-3.5" /> Sign out everywhere
             </Button>
           </form>
         </div>

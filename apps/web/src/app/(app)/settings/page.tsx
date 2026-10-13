@@ -10,7 +10,7 @@ import { PasskeyManager } from "@/components/passkey-manager";
 import { ConnectedAccounts } from "@/components/connected-accounts";
 import { countMangabakaEntries, mangabakaLastSynced } from "@/lib/provider-sync";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { ApiKeysList } from "@/components/api-keys-list";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Settings" };
@@ -159,22 +159,15 @@ export default async function SettingsPage({
         {apiKeys.length === 0 ? (
           <p className="text-sm text-muted-foreground">No API keys created yet.</p>
         ) : (
-          <div className="space-y-2">
-            {apiKeys.map((k) => (
-              <div key={k.id} className="flex items-center justify-between p-2 rounded-lg border">
-                <div>
-                  <p className="font-medium">{k.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {k.lastFour} · Created {new Date(k.createdAt).toLocaleDateString()}
-                    {k.lastUsedAt ? " · Last used " + new Date(k.lastUsedAt).toLocaleDateString() : ""}
-                  </p>
-                </div>
-                <Button variant="ghost" size="sm" onClick={() => { /* delete action */ }}>
-                  Delete
-                </Button>
-              </div>
-            ))}
-          </div>
+          <ApiKeysList
+            items={apiKeys.map((k) => ({
+              id: k.id,
+              name: k.name,
+              lastFour: k.lastFour,
+              createdAt: k.createdAt.toISOString(),
+              lastUsedAt: k.lastUsedAt ? k.lastUsedAt.toISOString() : null,
+            }))}
+          />
         )}
       </div>
     </div>

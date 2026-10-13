@@ -18,7 +18,8 @@
     "typecheck": "tsc -p packages/types --noEmit && tsc -p packages/database --noEmit && tsc -p packages/providers --noEmit && tsc -p apps/web --noEmit",
     "db:generate": "npm --workspace packages/database run db:generate",
     "db:migrate": "npm --workspace packages/database run db:migrate",
-    "ingest:mangabaka": "tsx scripts/ingest-mangabaka.ts"
+    "ingest:mangabaka": "tsx scripts/ingest-mangabaka.ts",
+    "test": "tsx --test \"packages/providers/src/**/*.test.ts\" \"apps/web/src/lib/*.test.ts\""
   },
   "devDependencies": {
     "tar-stream": "^3.2.2",
