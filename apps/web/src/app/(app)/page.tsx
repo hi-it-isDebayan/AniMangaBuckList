@@ -78,15 +78,16 @@ export default async function DashboardPage() {
       db
         .select({
           id: progressHistory.id,
-          titleId: titles.id,
-          title: titles.primaryTitle,
-          mediaType: titles.mediaType,
-          unit: progressHistory.unit,
-          kind: progressHistory.kind,
-          value: progressHistory.value,
-          source: progressHistory.source,
-          createdAt: progressHistory.createdAt,
-        })
+            titleId: titles.id,
+            title: titles.primaryTitle,
+            mediaType: titles.mediaType,
+            coverUrl: titles.coverUrl,
+            unit: progressHistory.unit,
+            kind: progressHistory.kind,
+            value: progressHistory.value,
+            source: progressHistory.source,
+            createdAt: progressHistory.createdAt,
+          })
         .from(progressHistory)
         .innerJoin(titles, eq(progressHistory.titleId, titles.id))
         .where(eq(progressHistory.userId, user.id))
@@ -304,16 +305,27 @@ export default async function DashboardPage() {
                   href={`/title/${row.titleId}`}
                   className="flex items-center gap-3 px-3.5 py-2.5 transition-colors hover:bg-accent/50"
                 >
-                  <span
-                    className={cn(
-                      "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-semibold",
-                      row.kind === "COMPLETED"
-                        ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-                        : "bg-primary/15 text-primary",
+                    {row.coverUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={row.coverUrl}
+                        alt={row.title}
+                        loading="lazy"
+                        referrerPolicy="no-referrer"
+                        className="h-8 w-8 shrink-0 rounded-lg object-cover"
+                      />
+                    ) : (
+                      <span
+                        className={cn(
+                          "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-semibold",
+                          row.kind === "COMPLETED"
+                            ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                            : "bg-primary/15 text-primary",
+                        )}
+                      >
+                        {row.unit === "EPISODE" ? "EP" : "CH"}
+                      </span>
                     )}
-                  >
-                    {row.unit === "EPISODE" ? "EP" : "CH"}
-                  </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-medium">{row.title}</span>
                     <span className="block text-xs text-muted-foreground">

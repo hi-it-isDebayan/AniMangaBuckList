@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BookOpenText, Check, ExternalLink, Loader2, Plus, Star } from "lucide-react";
 import type { DiscoverItem } from "@/lib/mangabaka";
@@ -39,20 +40,22 @@ export function DiscoverCard({ item }: { item: DiscoverItem }) {
   return (
     <div className="card-hover group flex flex-col overflow-hidden rounded-xl border bg-card shadow-sm">
       <div className="relative aspect-[2/3] overflow-hidden bg-muted">
-        {item.coverUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={item.coverUrl}
-            alt={item.title}
-            loading="lazy"
-            referrerPolicy="no-referrer"
-            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-          />
-        ) : (
-          <span className="cover-fallback flex h-full w-full items-center justify-center text-muted-foreground">
-            <BookOpenText className="h-8 w-8" />
-          </span>
-        )}
+        <Link href={`/series/${item.id}`} className="block h-full w-full" aria-label={item.title}>
+          {item.coverUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={item.coverUrl}
+              alt={item.title}
+              loading="lazy"
+              referrerPolicy="no-referrer"
+              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+          ) : (
+            <span className="cover-fallback flex h-full w-full items-center justify-center text-muted-foreground">
+              <BookOpenText className="h-8 w-8" />
+            </span>
+          )}
+        </Link>
         {item.score != null && (
           <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/65 px-2 py-0.5 text-[11px] font-semibold text-white backdrop-blur">
             <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
@@ -74,9 +77,13 @@ export function DiscoverCard({ item }: { item: DiscoverItem }) {
 
       <div className="flex flex-1 flex-col gap-2 p-3">
         <div className="min-w-0">
-          <p className="line-clamp-2 text-sm font-medium leading-snug" title={item.title}>
+          <Link
+            href={`/series/${item.id}`}
+            className="line-clamp-2 text-sm font-medium leading-snug transition-colors hover:text-primary"
+            title={item.title}
+          >
             {item.title}
-          </p>
+          </Link>
           {item.nativeTitle && (
             <p className="line-clamp-1 text-xs text-muted-foreground">{item.nativeTitle}</p>
           )}

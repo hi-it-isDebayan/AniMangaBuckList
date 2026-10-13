@@ -4,7 +4,7 @@ import {
   createContext,
   useContext,
   useState,
-  useCallback,
+  useEffect,
   useMemo,
   ReactNode,
 } from "react";
@@ -29,15 +29,26 @@ export function SearchProvider({
   children,
   defaultType = "MANGA",
   defaultSource = "all",
+  resetKey,
 }: {
   children: ReactNode;
   defaultType?: MediaType;
   defaultSource?: Source;
+  resetKey?: string;
 }) {
   const [query, setQuery] = useState("");
   const [type, setType] = useState<MediaType>(defaultType);
   const [source, setSource] = useState<Source>(defaultSource);
   const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    setQuery("");
+    setOpen(false);
+    setType(defaultType);
+    setSource(defaultSource);
+    // Reset the search bar whenever the active tab (route) changes so each
+    // tab keeps its own independent search state.
+  }, [resetKey, defaultType, defaultSource]);
 
   const value = useMemo(
     () => ({

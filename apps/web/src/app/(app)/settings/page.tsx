@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { AlertTriangle, Fingerprint, MonitorSmartphone, KeyRound } from "lucide-react";
+import { Fingerprint, MonitorSmartphone, KeyRound } from "lucide-react";
 import { requireUser, listSessions, getCurrentSessionId } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { eq } from "drizzle-orm";
@@ -7,8 +7,8 @@ import { publicApiKeys, userOauthAccounts, users } from "@ambl/database";
 import { getCredentialsForUser } from "@/lib/passkeys";
 import { SettingsForm } from "@/components/settings-form";
 import { PasskeyManager } from "@/components/passkey-manager";
-import { SessionsCard } from "@/components/sessions-card";
-import { ResendVerifyButton } from "@/components/resend-verify-button";
+import { ConnectedAccounts } from "@/components/connected-accounts";
+import { countMangabakaEntries, mangabakaLastSynced } from "@/lib/provider-sync";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -32,7 +32,6 @@ export default async function SettingsPage({
 
   const prefs = row?.preferences ?? { notifications: { episodes: false, chapters: false } };
   const hasPassword = !!row?.passwordHash;
-  const emailVerified = !!user.emailVerifiedAt;
 
   const authAccounts = await db
     .select({ provider: userOauthAccounts.provider })
@@ -41,11 +40,16 @@ export default async function SettingsPage({
 
   const linkedProviders = new Set(authAccounts.map((a) => a.provider));
 
-  const [sessionRows, currentSessionId, passkeys] = await Promise.all([
-    listSessions(user.id),
-    getCurrentSessionId(),
-    getCredentialsForUser(user.id),
-  ]);
+  const [sessionRows, currentSessionId, passkeys, mangabakaCount, mangabakaSyncedAt] =
+    await Promise.all([
+      listSessions(user.id),
+      getCurrentSessionId(),
+      getCredentialsForUser(user.id),
+      countMangabakaEntries(user.id),
+      mangabakaLastSynced(user.id),
+    ]);
+
+  const mangabakaConfigured = !!process.env.MANGABAKA_API_KEY?.trim();
 
   const apiKeys = await db
     .select({
@@ -138,28 +142,13 @@ export default async function SettingsPage({
           <MonitorSmartphone className="h-4 w-4 text-primary" />
           Connected Accounts
         </h2>
-        <div className="space-y-2">
-          <div className="flex items-center justify-between p-2 rounded-lg border">
-            <span>Google</span>
-            {linkedProviders.has("google") ? (
-              <span className="text-green-500 text-sm">Connected</span>
-            ) : (
-              <a href="/api/auth/google" className="text-sm text-primary hover:underline">
-                Connect
-              </a>
-            )}
-          </div>
-          <div className="flex items-center justify-between p-2 rounded-lg border">
-            <span>Password</span>
-            {hasPassword ? (
-              <span className="text-green-500 text-sm">Set</span>
-            ) : (
-              <a href="/settings/password" className="text-sm text-primary hover:underline">
-                Set password
-              </a>
-            )}
-          </div>
-        </div>
+        <ConnectedAccounts
+          linkedGoogle={linkedProviders.has("google")}
+          hasPassword={hasPassword}
+          mangabakaConfigured={mangabakaConfigured}
+          mangabakaCount={mangabakaCount}
+          mangabakaLastSynced={mangabakaSyncedAt ? mangabakaSyncedAt.toISOString() : null}
+        />
       </div>
 
       <div className="rounded-lg border bg-card p-4 space-y-4">

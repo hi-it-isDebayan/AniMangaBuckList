@@ -325,23 +325,22 @@ export function CommandSearch() {
                   {tab.label}
                 </button>
               ))}
-              <div className="flex shrink-0 items-center gap-0.5 rounded-xl bg-muted/60 p-0.5">
-                {SOURCE_TABS.map((tab) => (
-                  <button
-                    key={tab.key}
-                    type="button"
-                    onClick={() => setSource(tab.key as any)}
-                    className={cn(
-                      "rounded-lg px-2.5 py-1 text-xs font-medium transition-colors",
-                      source === tab.key
-                        ? "bg-card text-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground",
-                    )}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
+              <span className="mx-0.5 h-4 w-px shrink-0 bg-border" aria-hidden />
+              {SOURCE_TABS.map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setSource(tab.key)}
+                  className={cn(
+                    "rounded-lg px-2.5 py-1 text-xs font-medium transition-colors",
+                    source === tab.key
+                      ? "bg-card text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {tab.label}
+                </button>
+              ))}
             </div>
             <kbd className="mr-1 hidden shrink-0 rounded-md border bg-muted/60 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground sm:inline-block">
               /
