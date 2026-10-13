@@ -15,6 +15,7 @@ import {
   NotebookPen,
   Star,
   Tags,
+  TrendingUp,
   Users,
 } from "lucide-react";
 import type { LinkType, ProgressUnit } from "@ambl/types";
@@ -46,6 +47,7 @@ import { ExternalLinksManager } from "@/components/external-links-manager";
 import { SyncRelationsButton } from "@/components/sync-relations-button";
 import { AddToLibraryButton } from "@/components/add-to-library-button";
 import { TitleActionBar } from "@/components/title-action-bar";
+import { Sparkline } from "@/components/sparkline";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -146,10 +148,21 @@ export default async function TitlePage({
   const mangabakaIdRaw = extIdRows.find((r) => r.provider === "mangabaka")?.externalId ?? null;
   const mangabakaId =
     mangabakaIdRaw && /^\d+$/.test(mangabakaIdRaw) ? Number(mangabakaIdRaw) : null;
-  const [mangaMeta] =
+  // Prefer the MangaBaka series linked by id; fall back to matching the MAL id
+  // so MAL-added manga still pick up MangaBaka chapters, credits and stats.
+  let [mangaMeta] =
     mangabakaId != null
       ? await db.select().from(mangabakaSeries).where(eq(mangabakaSeries.id, mangabakaId)).limit(1)
       : [];
+  if (!mangaMeta && title.mediaType !== "ANIME" && title.malId != null) {
+    [mangaMeta] = await db
+      .select()
+      .from(mangabakaSeries)
+      .where(
+        and(eq(mangabakaSeries.malId, title.malId), eq(mangabakaSeries.mediaType, title.mediaType)),
+      )
+      .limit(1);
+  }
 
   const anilistId = extIdRows.find((r) => r.provider === "anilist")?.externalId ?? null;
   const malId =
@@ -159,14 +172,40 @@ export default async function TitlePage({
   const malUrl = malId ? `https://myanimelist.net/${mediaPath}/${malId}` : null;
   const anilistUrl = anilistId ? `https://anilist.co/${mediaPath}/${anilistId}` : null;
   const mangabakaUrl =
-    mangaMeta?.canonicalUrl ?? (mangabakaId != null ? `https://mangabaka.org/${mangabakaId}` : null);
+    mangaMeta?.canonicalUrl ??
+    (mangaMeta?.id != null
+      ? `https://mangabaka.org/${mangaMeta.id}`
+      : mangabakaId != null
+        ? `https://mangabaka.org/${mangabakaId}`
+        : null);
 
-  const genres = title.genres ?? [];
+  const genres =
+    title.genres && title.genres.length > 0 ? title.genres : (mangaMeta?.genres ?? []);
   const themes = mangaMeta?.tags ?? [];
   const authors = mangaMeta?.authors ?? [];
   const artists = mangaMeta?.artists ?? [];
   const publishers = (mangaMeta?.publishers ?? []).map((p) => p.name).filter(Boolean);
   const hasContributors = authors.length > 0 || artists.length > 0 || publishers.length > 0;
+
+  // MangaBaka: `popularity` is a global rank (1 = most popular) and the
+  // snapshot columns hold the same rank in the past — used for the trend curve.
+  const chapters = mangaMeta?.totalChapters ?? title.chapterCount;
+  const volumes = mangaMeta?.finalVolume ?? title.volumeCount;
+  const mangabakaRating = mangaMeta?.rating != null ? Math.round(mangaMeta.rating) / 10 : null;
+  const rank = mangaMeta?.popularity ?? null;
+  const rank1mo = mangaMeta?.popularity1mo ?? null;
+  const rankDelta = rank != null && rank1mo != null ? rank - rank1mo : null;
+  const rankSeries = mangaMeta
+    ? [
+        mangaMeta.popularity1y,
+        mangaMeta.popularity6mo,
+        mangaMeta.popularity3mo,
+        mangaMeta.popularity1mo,
+        mangaMeta.popularity1w,
+        mangaMeta.popularity1d,
+        mangaMeta.popularity,
+      ].filter((n): n is number => typeof n === "number" && Number.isFinite(n))
+    : [];
 
   const history = lib
     ? await db
@@ -348,6 +387,35 @@ export default async function TitlePage({
         )}
       </Section>
 
+      {mangaMeta && (rank != null || mangabakaRating != null) && (
+        <Section title="Statistics" icon={<TrendingUp className="h-4 w-4" />}>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            {rank != null && (
+              <Stat label="Global rank" value={`#${rank.toLocaleString()}`} trend={rankDelta} />
+            )}
+            {mangabakaRating != null && (
+              <Stat label="MangaBaka score" value={mangabakaRating.toFixed(1)} hint="/ 10" />
+            )}
+            {chapters != null && <Stat label="Chapters" value={String(chapters)} />}
+            {volumes != null && <Stat label="Volumes" value={String(volumes)} />}
+          </div>
+          {rankSeries.length >= 3 && (
+            <div className="mt-5">
+              <div className="mb-1.5 flex items-center justify-between text-xs text-muted-foreground">
+                <span>Popularity rank</span>
+                <span>last 12 months</span>
+              </div>
+              <Sparkline
+                values={rankSeries}
+                invert
+                className="h-14 w-full text-primary"
+                label="MangaBaka popularity rank over the last 12 months"
+              />
+            </div>
+          )}
+        </Section>
+      )}
+
       <Section title="Details" icon={<Layers className="h-4 w-4" />}>
         <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3 lg:grid-cols-4">
           <DetailItem label="Type">{mediaTypeLabel(title.mediaType)}</DetailItem>
@@ -358,12 +426,8 @@ export default async function TitlePage({
           {title.episodeCount != null && (
             <DetailItem label="Episodes">{title.episodeCount}</DetailItem>
           )}
-          {title.chapterCount != null && (
-            <DetailItem label="Chapters">{title.chapterCount}</DetailItem>
-          )}
-          {title.volumeCount != null && (
-            <DetailItem label="Volumes">{title.volumeCount}</DetailItem>
-          )}
+          {chapters != null && <DetailItem label="Chapters">{chapters}</DetailItem>}
+          {volumes != null && <DetailItem label="Volumes">{volumes}</DetailItem>}
           {(title.startDate || title.endDate) && (
             <DetailItem label="Published">
               {formatDate(title.startDate)}
@@ -520,6 +584,40 @@ function DetailItem({ label, children }: { label: string; children: ReactNode })
     <div className="min-w-0">
       <dt className="text-xs uppercase tracking-wide text-muted-foreground">{label}</dt>
       <dd className="mt-0.5 truncate text-sm">{children}</dd>
+    </div>
+  );
+}
+
+function Stat({
+  label,
+  value,
+  hint,
+  trend,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  trend?: number | null;
+}) {
+  return (
+    <div className="min-w-0">
+      <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="mt-1 flex items-baseline gap-1.5 text-lg font-semibold">
+        <span className="tabular-nums">{value}</span>
+        {hint && <span className="text-xs font-normal text-muted-foreground">{hint}</span>}
+        {typeof trend === "number" && trend !== 0 && (
+          <span
+            className={
+              trend < 0
+                ? "text-xs font-medium text-success"
+                : "text-xs font-medium text-destructive"
+            }
+            title={trend < 0 ? "Rank improved this month" : "Rank slipped this month"}
+          >
+            {trend < 0 ? "▲" : "▼"} {Math.abs(trend).toLocaleString()}
+          </span>
+        )}
+      </p>
     </div>
   );
 }

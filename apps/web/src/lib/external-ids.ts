@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { titleExternalIds } from "@ambl/database";
 import type { MediaType } from "@ambl/types";
-import { getDb } from "@/lib/db";
+import { getDb } from "./db";
 
 export interface ExternalIdLink {
   provider: string;

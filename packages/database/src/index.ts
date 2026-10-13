@@ -1,5 +1,5 @@
 export * from "./schema";
-export { getDb } from "./db";
+export { getDb, closeDb } from "./db";
 export {
   toMangabakaSeriesRow,
   upsertMangabakaSeries,

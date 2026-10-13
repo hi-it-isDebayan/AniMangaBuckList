@@ -17,3 +17,15 @@ export function getDb() {
   _db = drizzle(client, { schema });
   return _db;
 }
+
+/**
+ * Close the pooled connection and drop the cached client. Useful for scripts
+ * and tests that must let the Node process exit cleanly. Safe to call when no
+ * connection has been opened yet.
+ */
+export async function closeDb(): Promise<void> {
+  const active = client;
+  client = null;
+  _db = null;
+  if (active) await active.end();
+}
