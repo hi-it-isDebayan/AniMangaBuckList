@@ -80,6 +80,63 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   "SYSTEM",
 ]);
 
+// --- Sources feature -------------------------------------------------------
+
+export const userRoleEnum = pgEnum("user_role", ["USER", "MODERATOR", "ADMIN"]);
+
+export const sourceStatusEnum = pgEnum("source_status", [
+  "WORKING",
+  "DEGRADED",
+  "BROKEN",
+  "UNVERIFIED",
+]);
+
+export const sourceExtractorStatusEnum = pgEnum("source_extractor_status", [
+  "SUPPORTED",
+  "AWAITING_EXTRACTOR",
+  "UNSUPPORTED",
+]);
+
+export const sourceVisibilityEnum = pgEnum("source_visibility", ["PUBLIC", "HIDDEN"]);
+
+export const sourceFailureCategoryEnum = pgEnum("source_failure_category", [
+  "NONE",
+  "TIMEOUT",
+  "DNS",
+  "TLS",
+  "HTTP_4XX",
+  "HTTP_5XX",
+  "BLOCKED",
+  "TOO_MANY_REDIRECTS",
+  "PARSE_MISMATCH",
+  "UNSAFE_TARGET",
+  "UNKNOWN",
+]);
+
+export const sourceCheckTriggerEnum = pgEnum("source_check_trigger", [
+  "MANUAL",
+  "SCHEDULED",
+  "REPORT",
+]);
+
+export const sourceReportKindEnum = pgEnum("source_report_kind", [
+  "WORKING",
+  "NOT_WORKING",
+  "MISMATCH",
+  "OTHER",
+]);
+
+export const moderationActionEnum = pgEnum("moderation_action", [
+  "SOURCE_CREATED",
+  "SOURCE_UPDATED",
+  "SOURCE_DEPRECATED",
+  "SOURCE_RESTORED",
+  "SOURCE_DELETED",
+  "ROLE_GRANTED",
+  "ROLE_REVOKED",
+  "REPORT_RESOLVED",
+]);
+
 const char64 = (name: string) => varchar(name, { length: 64 });
 
 export const users = pgTable(
@@ -93,6 +150,7 @@ export const users = pgTable(
     oauthId: varchar("oauth_id", { length: 255 }),
     avatarUrl: text("avatar_url"),
     emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
+    role: userRoleEnum("role").notNull().default("USER"),
     preferences: jsonb("preferences")
       .$type<UserPreferences>()
       .notNull()
@@ -840,6 +898,135 @@ export const titleComments = pgTable(
   ],
 );
 
+// --- Sources feature tables ------------------------------------------------
+
+export const sources = pgTable(
+  "sources",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    // Canonical registrable host, e.g. "asuracomic.net". Uniqueness here is what
+    // prevents duplicate registrations for equivalent domains.
+    domain: varchar("domain", { length: 253 }).notNull(),
+    name: varchar("name", { length: 160 }).notNull(),
+    homepageUrl: text("homepage_url").notNull(),
+    contentTypes: mediaTypeEnum("content_types")
+      .array()
+      .notNull()
+      .default(sql`'{}'::media_type[]`),
+    // Extractor capability is tracked independently of registration: a source
+    // can exist and be linked with no compatible extractor yet.
+    extractorKey: varchar("extractor_key", { length: 80 }),
+    extractorStatus: sourceExtractorStatusEnum("extractor_status")
+      .notNull()
+      .default("AWAITING_EXTRACTOR"),
+    status: sourceStatusEnum("status").notNull().default("UNVERIFIED"),
+    visibility: sourceVisibilityEnum("visibility").notNull().default("PUBLIC"),
+    lastCheckedAt: timestamp("last_checked_at", { withTimezone: true }),
+    lastSuccessAt: timestamp("last_success_at", { withTimezone: true }),
+    consecutiveFailures: integer("consecutive_failures").notNull().default(0),
+    lastFailureCategory: sourceFailureCategoryEnum("last_failure_category")
+      .notNull()
+      .default("NONE"),
+    createdBy: uuid("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("sources_domain_uq").on(t.domain),
+    index("sources_status_idx").on(t.status, t.visibility),
+    index("sources_created_by_idx").on(t.createdBy),
+  ],
+);
+
+export const sourceChecks = pgTable(
+  "source_checks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    sourceId: uuid("source_id")
+      .notNull()
+      .references(() => sources.id, { onDelete: "cascade" }),
+    reachable: boolean("reachable").notNull(),
+    extractOk: boolean("extract_ok").notNull(),
+    failureCategory: sourceFailureCategoryEnum("failure_category")
+      .notNull()
+      .default("NONE"),
+    httpStatus: integer("http_status"),
+    latencyMs: integer("latency_ms"),
+    trigger: sourceCheckTriggerEnum("trigger").notNull().default("MANUAL"),
+    checkedBy: uuid("checked_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("source_checks_source_idx").on(t.sourceId, t.createdAt)],
+);
+
+export const sourceLinks = pgTable(
+  "source_links",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    sourceId: uuid("source_id")
+      .notNull()
+      .references(() => sources.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("source_links_user_source_uq").on(t.userId, t.sourceId),
+    index("source_links_user_idx").on(t.userId),
+    index("source_links_source_idx").on(t.sourceId),
+  ],
+);
+
+export const sourceReports = pgTable(
+  "source_reports",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    sourceId: uuid("source_id")
+      .notNull()
+      .references(() => sources.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    kind: sourceReportKindEnum("kind").notNull(),
+    note: varchar("note", { length: 1000 }),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    resolvedBy: uuid("resolved_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("source_reports_source_idx").on(t.sourceId, t.createdAt),
+    index("source_reports_resolved_idx").on(t.resolvedAt),
+  ],
+);
+
+export const moderationAuditLog = pgTable(
+  "moderation_audit_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    actorId: uuid("actor_id").references(() => users.id, { onDelete: "set null" }),
+    action: moderationActionEnum("action").notNull(),
+    sourceId: uuid("source_id").references(() => sources.id, {
+      onDelete: "set null",
+    }),
+    targetUserId: uuid("target_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    reason: varchar("reason", { length: 500 }),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("moderation_audit_log_created_idx").on(t.createdAt),
+    index("moderation_audit_log_source_idx").on(t.sourceId),
+    index("moderation_audit_log_actor_idx").on(t.actorId),
+  ],
+);
+
 export const usersRelations = relations(users, ({ many }) => ({
   sessions: many(sessions),
   oauthAccounts: many(userOauthAccounts),
@@ -858,6 +1045,32 @@ export const usersRelations = relations(users, ({ many }) => ({
 
 export const titleCommentsRelations = relations(titleComments, ({ one }) => ({
   user: one(users, { fields: [titleComments.userId], references: [users.id] }),
+}));
+
+export const sourcesRelations = relations(sources, ({ one, many }) => ({
+  createdBy: one(users, { fields: [sources.createdBy], references: [users.id] }),
+  checks: many(sourceChecks),
+  links: many(sourceLinks),
+  reports: many(sourceReports),
+}));
+
+export const sourceChecksRelations = relations(sourceChecks, ({ one }) => ({
+  source: one(sources, { fields: [sourceChecks.sourceId], references: [sources.id] }),
+}));
+
+export const sourceLinksRelations = relations(sourceLinks, ({ one }) => ({
+  user: one(users, { fields: [sourceLinks.userId], references: [users.id] }),
+  source: one(sources, { fields: [sourceLinks.sourceId], references: [sources.id] }),
+}));
+
+export const sourceReportsRelations = relations(sourceReports, ({ one }) => ({
+  source: one(sources, { fields: [sourceReports.sourceId], references: [sources.id] }),
+  user: one(users, { fields: [sourceReports.userId], references: [users.id] }),
+}));
+
+export const moderationAuditLogRelations = relations(moderationAuditLog, ({ one }) => ({
+  actor: one(users, { fields: [moderationAuditLog.actorId], references: [users.id] }),
+  source: one(sources, { fields: [moderationAuditLog.sourceId], references: [sources.id] }),
 }));
 
 export const userOauthAccountsRelations = relations(userOauthAccounts, ({ one }) => ({
@@ -950,5 +1163,14 @@ export type Session = typeof sessions.$inferSelect;
 export type Title = typeof titles.$inferSelect;
 export type UserLibrary = typeof userLibrary.$inferSelect;
 export type UserProgress = typeof userProgress.$inferSelect;
+export type Source = typeof sources.$inferSelect;
+export type SourceCheck = typeof sourceChecks.$inferSelect;
+export type SourceLink = typeof sourceLinks.$inferSelect;
+export type SourceReport = typeof sourceReports.$inferSelect;
+export type ModerationAuditEntry = typeof moderationAuditLog.$inferSelect;
+export type UserRole = (typeof userRoleEnum.enumValues)[number];
+export type SourceStatus = (typeof sourceStatusEnum.enumValues)[number];
+export type SourceExtractorStatus = (typeof sourceExtractorStatusEnum.enumValues)[number];
+export type SourceFailureCategory = (typeof sourceFailureCategoryEnum.enumValues)[number];
 
 export const SYSTEM_TAG_USER_ID = "00000000-0000-0000-0000-000000000000";
