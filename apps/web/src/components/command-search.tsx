@@ -294,7 +294,7 @@ export function CommandSearch() {
 
           <div
             className={cn(
-              "flex items-center gap-1.5 rounded-2xl border bg-card/95 p-1.5 shadow-xl backdrop-blur-xl transition-shadow",
+              "flex flex-wrap items-center gap-1.5 rounded-2xl border bg-card/95 p-1.5 shadow-xl backdrop-blur-xl transition-shadow",
               open ? "ring-2 ring-ring/50" : "ring-1 ring-transparent",
             )}
           >
@@ -311,14 +311,14 @@ export function CommandSearch() {
               aria-label="Search and add a title"
               className="h-9 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
             />
-            <div className="flex shrink-0 items-center gap-0.5 rounded-xl bg-muted/60 p-0.5">
+            <div className="flex w-full min-w-0 items-center gap-0.5 overflow-x-auto rounded-xl bg-muted/60 p-0.5 sm:w-auto">
               {TYPE_TABS.map((tab) => (
                 <button
                   key={tab.key}
                   type="button"
                   onClick={() => setType(tab.key)}
                   className={cn(
-                    "rounded-lg px-2.5 py-1 text-xs font-medium transition-colors",
+                    "shrink-0 whitespace-nowrap rounded-lg px-1.5 py-1 text-xs font-medium transition-colors sm:px-2.5",
                     type === tab.key
                       ? "bg-card text-foreground shadow-sm"
                       : "text-muted-foreground hover:text-foreground",
@@ -334,7 +334,7 @@ export function CommandSearch() {
                   type="button"
                   onClick={() => setSource(tab.key)}
                   className={cn(
-                    "rounded-lg px-2.5 py-1 text-xs font-medium transition-colors",
+                    "shrink-0 whitespace-nowrap rounded-lg px-1.5 py-1 text-xs font-medium transition-colors sm:px-2.5",
                     source === tab.key
                       ? "bg-card text-foreground shadow-sm"
                       : "text-muted-foreground hover:text-foreground",
