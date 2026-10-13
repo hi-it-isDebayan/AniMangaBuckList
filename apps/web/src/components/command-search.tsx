@@ -123,8 +123,13 @@ export function CommandSearch() {
   const add = async (item: SearchItem, status: LibraryStatus) => {
     const key = itemKey(item);
     setPendingKey(key);
-    const res =
-      item.malId != null
+    // Manga (manga/manhwa/manhua/novels) gets MangaBaka metadata: richer
+    // chapters, credits and stats. Anime isn't in MangaBaka's catalogue, so
+    // those keep MAL metadata.
+    const preferMangabaka = item.mediaType !== "ANIME" && item.mangabakaId != null;
+    const res = preferMangabaka
+      ? await addMangabakaTitleAction({ mangabakaId: item.mangabakaId!, status })
+      : item.malId != null
         ? await addTitleAction({
             malId: item.malId,
             mediaType: item.mediaType as MediaType,
