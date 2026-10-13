@@ -101,6 +101,22 @@ export async function ensureBootstrapAdmin(userId: string): Promise<void> {
   });
 }
 
+/** Admin-only: the user directory used by the role-management screen. */
+export async function listUsers(limit = 100) {
+  return getDb()
+    .select({
+      id: users.id,
+      email: users.email,
+      displayName: users.displayName,
+      role: users.role,
+      emailVerifiedAt: users.emailVerifiedAt,
+      createdAt: users.createdAt,
+    })
+    .from(users)
+    .orderBy(users.role, desc(users.createdAt))
+    .limit(limit);
+}
+
 export async function countAdmins(): Promise<number> {
   const rows = await getDb()
     .select({ value: count() })
