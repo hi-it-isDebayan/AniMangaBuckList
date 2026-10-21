@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 /** Card wrapper used for every section of both title detail pages. */
 export function TitleSection({
@@ -68,6 +69,52 @@ export function Stat({
         )}
       </p>
     </div>
+  );
+}
+
+/**
+ * Horizontal completion bar. Used on the library title page so a glance shows
+ * how far through a title the reader is.
+ */
+export function ProgressBar({
+  percent,
+  className,
+  label,
+}: {
+  percent: number;
+  className?: string;
+  label?: string;
+}) {
+  const clamped = Math.max(0, Math.min(100, percent));
+  return (
+    <div
+      role="progressbar"
+      aria-valuenow={clamped}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-label={label}
+      className={cn("h-2 w-full overflow-hidden rounded-full bg-muted", className)}
+    >
+      <div
+        className="h-full rounded-full bg-primary transition-[width] duration-500"
+        style={{ width: `${clamped}%` }}
+      />
+    </div>
+  );
+}
+
+/** Compact "at a glance" strip of label/value pairs. */
+export function QuickFacts({ facts }: { facts: { label: string; value: string }[] }) {
+  if (facts.length === 0) return null;
+  return (
+    <dl className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-3 lg:grid-cols-4">
+      {facts.map((fact) => (
+        <div key={fact.label} className="min-w-0">
+          <dt className="text-xs uppercase tracking-wide text-muted-foreground">{fact.label}</dt>
+          <dd className="mt-0.5 truncate text-sm font-medium tabular-nums">{fact.value}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 

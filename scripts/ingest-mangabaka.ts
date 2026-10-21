@@ -28,7 +28,7 @@ const RECENT_YEAR = new Date().getFullYear() - 1;
 const RECENT_MS = 90 * 24 * 60 * 60 * 1000;
 const BATCH_SIZE = 500; // smaller for safe streaming
 
-const DEFAULT_CATALOGUE_LIMIT = 50_000;
+const DEFAULT_CATALOGUE_LIMIT = 220_000;
 const DEFAULT_FROM_YEAR = 2000;
 const DEFAULT_TO_YEAR = new Date().getFullYear();
 

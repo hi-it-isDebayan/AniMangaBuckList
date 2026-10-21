@@ -38,6 +38,8 @@ import { TitleHero } from "@/components/title/title-hero";
 import {
   Contributor,
   DetailItem,
+  ProgressBar,
+  QuickFacts,
   Stat,
   TitleSection,
 } from "@/components/title/title-section";
@@ -54,6 +56,13 @@ import { AddToLibraryButton } from "@/components/add-to-library-button";
 import { TitleActionBar } from "@/components/title-action-bar";
 import { Sparkline } from "@/components/sparkline";
 import { Badge } from "@/components/ui/badge";
+import {
+  estimateRemainingTime,
+  quickFacts,
+  releasePace,
+  summariseProgress,
+  summariseRankHistory,
+} from "@/lib/title-insights";
 import {
   formatDate,
   mediaStatusBadge,
@@ -237,6 +246,33 @@ export default async function TitlePage({
         ? Math.round(mangaMeta.rating) / 10
         : null;
 
+  // --- Derived, presentation-only insights (no extra queries) --------------
+  const progressSummary = summariseProgress(completed ?? null, total ?? null);
+  const remainingLabel = estimateRemainingTime(progressSummary.remaining, unit);
+  const pace = releasePace(chapters, title.startDate, title.endDate);
+  const rankSummary = summariseRankHistory(
+    mangaMeta
+      ? [
+          { label: "1y", value: mangaMeta.popularity1y },
+          { label: "6mo", value: mangaMeta.popularity6mo },
+          { label: "3mo", value: mangaMeta.popularity3mo },
+          { label: "1mo", value: mangaMeta.popularity1mo },
+          { label: "1w", value: mangaMeta.popularity1w },
+          { label: "now", value: mangaMeta.popularity },
+        ]
+      : [],
+  );
+  const facts = quickFacts({
+    mediaType: title.mediaType,
+    status: title.status ? mediaStatusLabel(title.status) : null,
+    year: title.year,
+    chapters,
+    volumes,
+    score,
+    rank,
+    pace,
+  });
+
   const providerLinks = [
     malUrl ? { href: malUrl, label: "MyAnimeList" } : null,
     anilistUrl ? { href: anilistUrl, label: "AniList" } : null,
@@ -293,8 +329,31 @@ export default async function TitlePage({
         )}
       </TitleActionBar>
 
+      {facts.length > 0 && (
+        <TitleSection title="At a glance" icon={<Layers className="h-4 w-4" />}>
+          <QuickFacts facts={facts} />
+        </TitleSection>
+      )}
+
       {lib && (
         <TitleSection title="Progress" icon={<Flame className="h-4 w-4" />}>
+          {progressSummary.percent != null && (
+            <div className="mb-4">
+              <div className="mb-1.5 flex items-center justify-between text-xs text-muted-foreground">
+                <span>
+                  {completed ?? 0} / {total} {unit === "EPISODE" ? "episodes" : "chapters"}
+                </span>
+                <span className="tabular-nums">
+                  {progressSummary.percent}% complete
+                  {progressSummary.complete ? " 🎉" : remainingLabel ? ` · ${remainingLabel} left` : ""}
+                </span>
+              </div>
+              <ProgressBar
+                percent={progressSummary.percent}
+                label={`${title.primaryTitle} progress`}
+              />
+            </div>
+          )}
           <ProgressControl
             titleId={id}
             unit={unit}
@@ -353,6 +412,26 @@ export default async function TitlePage({
                 className="h-14 w-full text-primary"
                 label="MangaBaka popularity rank over the last 12 months"
               />
+              {(rankSummary.best != null || rankSummary.change1y != null) && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {rankSummary.best != null && (
+                    <>Best rank #{rankSummary.best.toLocaleString()}</>
+                  )}
+                  {rankSummary.change1y != null && (
+                    <>
+                      {rankSummary.best != null ? " · " : ""}
+                      <span
+                        className={
+                          rankSummary.improving ? "text-success" : "text-muted-foreground"
+                        }
+                      >
+                        {rankSummary.improving ? "▲" : "▼"}{" "}
+                        {Math.abs(rankSummary.change1y).toLocaleString()} places over 12 months
+                      </span>
+                    </>
+                  )}
+                </p>
+              )}
             </div>
           )}
         </TitleSection>

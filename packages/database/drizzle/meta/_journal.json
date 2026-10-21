@@ -92,6 +92,20 @@
       "when": 1791892859388,
       "tag": "0012_chief_maggott",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1792559567354,
+      "tag": "0013_useful_quicksilver",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1792560440362,
+      "tag": "0014_heavy_adam_destine",
+      "breakpoints": true
     }
   ]
 }

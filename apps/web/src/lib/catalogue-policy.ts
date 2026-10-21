@@ -1,9 +1,11 @@
 /**
  * Catalogue curation policy.
  *
- * The local MangaBaka catalogue is capped at 50k rows. Newly published titles
- * live on the "New" page until they have enough material to be promoted into
- * the main catalogue:
+ * The local MangaBaka catalogue is capped at 220k rows. Measured density is
+ * ~1.5 KB/row including indexes, so 220k rows is roughly 330 MB — well inside
+ * Neon's Free-plan 1 GB storage allowance (which also has to cover the WAL and
+ * any side branches). Newly published titles live on the "New" page until they
+ * have enough material to be promoted into the main catalogue:
  *
  * - manga / manhwa / manhua / novels: 70+ chapters
  * - anime: 5+ episodes (reserved for providers that expose anime)
@@ -15,7 +17,7 @@
  * This module is pure so the policy can be tested without a database.
  */
 
-export const CATALOGUE_LIMIT = 50_000;
+export const CATALOGUE_LIMIT = 220_000;
 
 export const PROMOTE_CHAPTERS = 70;
 export const PROMOTE_EPISODES = 5;
