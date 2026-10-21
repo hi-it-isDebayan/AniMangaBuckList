@@ -1,0 +1,1 @@
+CREATE INDEX "mangabaka_series_trending_idx" ON "mangabaka_series" USING btree (("popularity_1mo" - "popularity"));

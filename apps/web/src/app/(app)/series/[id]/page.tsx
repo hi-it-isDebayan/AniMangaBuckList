@@ -25,10 +25,12 @@ import { findTitleIdByExternalId } from "@/lib/external-ids";
 import {
   Contributor,
   DetailItem,
+  QuickFacts,
   Stat,
   TitleSection,
 } from "@/components/title/title-section";
 import { Badge } from "@/components/ui/badge";
+import { quickFacts, releasePace, summariseRankHistory } from "@/lib/title-insights";
 
 export const dynamic = "force-dynamic";
 
@@ -238,6 +240,25 @@ export default async function SeriesPage({
   const rank1mo = series.popularityHistory.find((point) => point.label === "1mo")?.value ?? null;
   const rankDelta = rank != null && rank1mo != null ? rank - rank1mo : null;
 
+  // Oldest-first rank snapshots for the insight summary (1y → now).
+  const rankSummary = summariseRankHistory(
+    [...series.popularityHistory].reverse().map((point) => ({
+      label: point.label,
+      value: point.value,
+    })),
+  );
+  const pace = releasePace(series.totalChapters, series.startDate, series.endDate);
+  const facts = quickFacts({
+    mediaType: series.mediaType ?? "MANGA",
+    status: series.status ? mediaStatusLabel(series.status) : null,
+    year: series.year,
+    chapters: series.totalChapters,
+    volumes: series.finalVolume,
+    score,
+    rank,
+    pace,
+  });
+
   const links = [
     series.canonicalUrl ? { href: series.canonicalUrl, label: "MangaBaka" } : null,
     series.malId != null
@@ -295,6 +316,12 @@ export default async function SeriesPage({
           )
         }
       />
+
+      {facts.length > 0 && (
+        <TitleSection title="At a glance" icon={<Layers className="h-4 w-4" />}>
+          <QuickFacts facts={facts} />
+        </TitleSection>
+      )}
 
       <TitleSection title="Overview" icon={<BookOpenText className="h-4 w-4" />}>
         {series.synopsis ? (
@@ -365,6 +392,26 @@ export default async function SeriesPage({
                 className="h-14 w-full text-primary"
                 label="MangaBaka popularity rank over the last 12 months"
               />
+              {(rankSummary.best != null || rankSummary.change1y != null) && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {rankSummary.best != null && (
+                    <>Best rank #{rankSummary.best.toLocaleString()}</>
+                  )}
+                  {rankSummary.change1y != null && (
+                    <>
+                      {rankSummary.best != null ? " · " : ""}
+                      <span
+                        className={
+                          rankSummary.improving ? "text-success" : "text-muted-foreground"
+                        }
+                      >
+                        {rankSummary.improving ? "▲" : "▼"}{" "}
+                        {Math.abs(rankSummary.change1y).toLocaleString()} places over 12 months
+                      </span>
+                    </>
+                  )}
+                </p>
+              )}
             </div>
           )}
         </TitleSection>
