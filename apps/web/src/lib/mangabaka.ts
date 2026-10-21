@@ -21,7 +21,11 @@ export const DISCOVER_SORTS: { key: DiscoverSort; label: string }[] = [
   { key: "rating", label: "Top rated" },
 ];
 
-export const DISCOVER_YEARS = [2027, 2026, 2025, 2024, 2023, 2022] as const;
+/** Catalogue years, newest first (2026 → 2000). */
+export const DISCOVER_YEARS: readonly number[] = Array.from(
+  { length: 27 },
+  (_, index) => 2026 - index,
+);
 
 const FORMAT_TO_TYPE: Record<Exclude<DiscoverFormat, "ALL">, string> = {
   MANGA: "manga",
@@ -245,6 +249,57 @@ export async function discoverSeries(options: {
     const items = (json.data ?? []).map(toDiscoverItem);
     return {
       items,
+      count,
+      page,
+      totalPages: Math.max(1, Math.ceil(count / limit)),
+    };
+  } catch {
+    return { items: [], count: 0, page, totalPages: 1 };
+  }
+}
+
+/**
+ * Live MangaBaka text search. Used as the fallback when a query has no (or not
+ * enough) matches in the local `mangabaka_series` catalogue.
+ */
+export async function searchMangabakaSeries(
+  query: string,
+  options: {
+    format?: DiscoverFormat | null;
+    year?: number | null;
+    limit?: number;
+    page?: number;
+  } = {},
+): Promise<DiscoverResult> {
+  const limit = options.limit ?? 24;
+  const page = Math.max(1, options.page ?? 1);
+  const q = query.trim();
+  if (!q) return { items: [], count: 0, page, totalPages: 1 };
+
+  const params = new URLSearchParams();
+  params.set("q", q);
+  if (options.format && options.format !== "ALL") {
+    params.set("type", FORMAT_TO_TYPE[options.format]);
+  }
+  params.set("limit", String(limit));
+  params.set("page", String(page));
+  if (options.year != null) {
+    params.set("published_start_date_lower", String(options.year));
+    params.set("published_start_date_upper", String(options.year));
+  }
+  params.append("content_rating", "safe");
+  params.append("content_rating", "suggestive");
+
+  try {
+    const res = await fetch(`${API}/v2/series/search?${params.toString()}`, {
+      headers: apiHeaders(),
+      next: { revalidate: REVALIDATE_SECONDS },
+    });
+    if (!res.ok) return { items: [], count: 0, page, totalPages: 1 };
+    const json = (await res.json()) as SearchResponse;
+    const count = json.pagination?.count ?? 0;
+    return {
+      items: (json.data ?? []).map(toDiscoverItem),
       count,
       page,
       totalPages: Math.max(1, Math.ceil(count / limit)),

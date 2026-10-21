@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/auth";
 import { ensureBootstrapAdmin } from "@/lib/sources/service";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { CommandSearch } from "@/components/command-search";
+import { MetadataRefresher } from "@/components/metadata-refresher";
 import { SearchLayout } from "@/components/search-layout";
 import { AppNav } from "@/components/app-nav";
 import { Button } from "@/components/ui/button";
@@ -76,6 +77,7 @@ export default async function AppLayout({
         </header>
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-6 pt-6">{children}</main>
         <CommandSearch />
+        <MetadataRefresher />
       </div>
     </SearchLayout>
   );

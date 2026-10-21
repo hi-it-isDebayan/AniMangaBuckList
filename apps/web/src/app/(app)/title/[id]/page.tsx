@@ -1,12 +1,10 @@
-import type { Metadata } from "next";
-import type { ReactNode } from "react";
+﻿import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { and, asc, desc, eq } from "drizzle-orm";
 import {
   BookOpenText,
   Building2,
-  CalendarDays,
   ExternalLink,
   Flame,
   History,
@@ -15,6 +13,7 @@ import {
   NotebookPen,
   Star,
   Tags,
+  TrendingUp,
   Users,
 } from "lucide-react";
 import type { LinkType, ProgressUnit } from "@ambl/types";
@@ -34,7 +33,14 @@ import {
 } from "@ambl/database";
 import { requireUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
-import { MediaTypeBadge, StatusBadge } from "@/components/status-badge";
+import { StatusBadge } from "@/components/status-badge";
+import { TitleHero } from "@/components/title/title-hero";
+import {
+  Contributor,
+  DetailItem,
+  Stat,
+  TitleSection,
+} from "@/components/title/title-section";
 import { StatusSelect } from "@/components/status-select";
 import { FavoriteButton } from "@/components/favorite-button";
 import { RemoveTitleButton } from "@/components/remove-title-button";
@@ -46,7 +52,7 @@ import { ExternalLinksManager } from "@/components/external-links-manager";
 import { SyncRelationsButton } from "@/components/sync-relations-button";
 import { AddToLibraryButton } from "@/components/add-to-library-button";
 import { TitleActionBar } from "@/components/title-action-bar";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Sparkline } from "@/components/sparkline";
 import { Badge } from "@/components/ui/badge";
 import {
   formatDate,
@@ -146,10 +152,21 @@ export default async function TitlePage({
   const mangabakaIdRaw = extIdRows.find((r) => r.provider === "mangabaka")?.externalId ?? null;
   const mangabakaId =
     mangabakaIdRaw && /^\d+$/.test(mangabakaIdRaw) ? Number(mangabakaIdRaw) : null;
-  const [mangaMeta] =
+  // Prefer the MangaBaka series linked by id; fall back to matching the MAL id
+  // so MAL-added manga still pick up MangaBaka chapters, credits and stats.
+  let [mangaMeta] =
     mangabakaId != null
       ? await db.select().from(mangabakaSeries).where(eq(mangabakaSeries.id, mangabakaId)).limit(1)
       : [];
+  if (!mangaMeta && title.mediaType !== "ANIME" && title.malId != null) {
+    [mangaMeta] = await db
+      .select()
+      .from(mangabakaSeries)
+      .where(
+        and(eq(mangabakaSeries.malId, title.malId), eq(mangabakaSeries.mediaType, title.mediaType)),
+      )
+      .limit(1);
+  }
 
   const anilistId = extIdRows.find((r) => r.provider === "anilist")?.externalId ?? null;
   const malId =
@@ -159,14 +176,40 @@ export default async function TitlePage({
   const malUrl = malId ? `https://myanimelist.net/${mediaPath}/${malId}` : null;
   const anilistUrl = anilistId ? `https://anilist.co/${mediaPath}/${anilistId}` : null;
   const mangabakaUrl =
-    mangaMeta?.canonicalUrl ?? (mangabakaId != null ? `https://mangabaka.org/${mangabakaId}` : null);
+    mangaMeta?.canonicalUrl ??
+    (mangaMeta?.id != null
+      ? `https://mangabaka.org/${mangaMeta.id}`
+      : mangabakaId != null
+        ? `https://mangabaka.org/${mangabakaId}`
+        : null);
 
-  const genres = title.genres ?? [];
+  const genres =
+    title.genres && title.genres.length > 0 ? title.genres : (mangaMeta?.genres ?? []);
   const themes = mangaMeta?.tags ?? [];
   const authors = mangaMeta?.authors ?? [];
   const artists = mangaMeta?.artists ?? [];
   const publishers = (mangaMeta?.publishers ?? []).map((p) => p.name).filter(Boolean);
   const hasContributors = authors.length > 0 || artists.length > 0 || publishers.length > 0;
+
+  // MangaBaka: `popularity` is a global rank (1 = most popular) and the
+  // snapshot columns hold the same rank in the past â€” used for the trend curve.
+  const chapters = mangaMeta?.totalChapters ?? title.chapterCount;
+  const volumes = mangaMeta?.finalVolume ?? title.volumeCount;
+  const mangabakaRating = mangaMeta?.rating != null ? Math.round(mangaMeta.rating) / 10 : null;
+  const rank = mangaMeta?.popularity ?? null;
+  const rank1mo = mangaMeta?.popularity1mo ?? null;
+  const rankDelta = rank != null && rank1mo != null ? rank - rank1mo : null;
+  const rankSeries = mangaMeta
+    ? [
+        mangaMeta.popularity1y,
+        mangaMeta.popularity6mo,
+        mangaMeta.popularity3mo,
+        mangaMeta.popularity1mo,
+        mangaMeta.popularity1w,
+        mangaMeta.popularity1d,
+        mangaMeta.popularity,
+      ].filter((n): n is number => typeof n === "number" && Number.isFinite(n))
+    : [];
 
   const history = lib
     ? await db
@@ -194,97 +237,35 @@ export default async function TitlePage({
         ? Math.round(mangaMeta.rating) / 10
         : null;
 
+  const providerLinks = [
+    malUrl ? { href: malUrl, label: "MyAnimeList" } : null,
+    anilistUrl ? { href: anilistUrl, label: "AniList" } : null,
+    mangabakaUrl ? { href: mangabakaUrl, label: "MangaBaka" } : null,
+  ].filter((link): link is { href: string; label: string } => link != null);
+
   return (
     <div className="space-y-5 pb-28 sm:pb-32">
-      <header className="relative overflow-hidden rounded-2xl border bg-card/60 shadow-sm">
-        {title.coverUrl && (
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-0 scale-110 opacity-25 blur-3xl"
-            style={{
-              backgroundImage: `url(${title.coverUrl})`,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-            }}
-          />
-        )}
-        <div className="relative flex flex-col gap-5 p-4 sm:flex-row sm:gap-6 sm:p-6">
-          <div className="shrink-0 self-center sm:self-start">
-            {title.coverUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={title.coverUrl}
-                alt={title.primaryTitle}
-                loading="eager"
-                referrerPolicy="no-referrer"
-                className="h-56 w-40 rounded-xl border shadow-lg transition-transform duration-300 hover:scale-[1.02] sm:h-72 sm:w-52"
-              />
-            ) : (
-              <span className="cover-fallback flex h-56 w-40 items-center justify-center rounded-xl border text-muted-foreground sm:h-72 sm:w-52">
-                <BookOpenText className="h-10 w-10" />
-              </span>
-            )}
-          </div>
-
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <MediaTypeBadge type={title.mediaType} />
-              {title.year != null && <Badge variant="secondary">{title.year}</Badge>}
-              {title.status != null && (
-                <Badge variant={mediaStatusBadge(title.status)}>
-                  {mediaStatusLabel(title.status)}
-                </Badge>
-              )}
-              {lib && <StatusBadge status={lib.status} />}
-            </div>
-
-            <h1 className="mt-3 text-2xl font-semibold tracking-tight text-gradient sm:text-3xl">
-              {title.primaryTitle}
-            </h1>
-            {title.englishTitle && title.englishTitle !== title.primaryTitle && (
-              <p className="text-muted-foreground">{title.englishTitle}</p>
-            )}
-            {title.japaneseTitle && (
-              <p className="text-sm text-muted-foreground">{title.japaneseTitle}</p>
-            )}
-
-            {score != null && (
-              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-                <span className="inline-flex items-center gap-1.5 font-medium">
-                  <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
-                  {score.toFixed(1)}
-                  <span className="font-normal text-muted-foreground">/ 10</span>
-                </span>
-                {title.startDate && (
-                  <span className="inline-flex items-center gap-1.5 text-muted-foreground">
-                    <CalendarDays className="h-4 w-4" />
-                    {formatDate(title.startDate)}
-                    {title.endDate ? ` – ${formatDate(title.endDate)}` : ""}
-                  </span>
-                )}
-              </div>
-            )}
-
-            {genres.length > 0 && (
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                {genres.slice(0, 8).map((genre) => (
-                  <Badge key={genre} variant="outline">
-                    {genre}
-                  </Badge>
-                ))}
-              </div>
-            )}
-
-            {(malUrl || anilistUrl || mangabakaUrl) && (
-              <div className="mt-4 flex flex-wrap gap-2">
-                {malUrl && <ProviderLink href={malUrl} label="MyAnimeList" />}
-                {anilistUrl && <ProviderLink href={anilistUrl} label="AniList" />}
-                {mangabakaUrl && <ProviderLink href={mangabakaUrl} label="MangaBaka" />}
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
+      <TitleHero
+        data={{
+          title: title.primaryTitle,
+          englishTitle: title.englishTitle,
+          japaneseTitle: title.japaneseTitle,
+          coverUrl: title.coverUrl,
+          mediaType: title.mediaType,
+          status: title.status,
+          year: title.year,
+          startDate: title.startDate,
+          endDate: title.endDate,
+          score,
+          rank,
+          chapters,
+          volumes,
+          episodes: title.episodeCount,
+          genres,
+          links: providerLinks,
+          libraryStatus: lib ? <StatusBadge status={lib.status} /> : null,
+        }}
+      />
 
       <TitleActionBar>
         {lib ? (
@@ -313,7 +294,7 @@ export default async function TitlePage({
       </TitleActionBar>
 
       {lib && (
-        <Section title="Progress" icon={<Flame className="h-4 w-4" />}>
+        <TitleSection title="Progress" icon={<Flame className="h-4 w-4" />}>
           <ProgressControl
             titleId={id}
             unit={unit}
@@ -322,10 +303,10 @@ export default async function TitlePage({
             completed={completed ?? null}
             total={total ?? null}
           />
-        </Section>
+        </TitleSection>
       )}
 
-      <Section title="Overview" icon={<BookOpenText className="h-4 w-4" />}>
+      <TitleSection title="Overview" icon={<BookOpenText className="h-4 w-4" />}>
         {title.synopsis ? (
           <p className="text-sm leading-relaxed text-muted-foreground">{title.synopsis}</p>
         ) : (
@@ -346,9 +327,38 @@ export default async function TitlePage({
             </div>
           </div>
         )}
-      </Section>
+      </TitleSection>
 
-      <Section title="Details" icon={<Layers className="h-4 w-4" />}>
+      {mangaMeta && (rank != null || mangabakaRating != null) && (
+        <TitleSection title="Statistics" icon={<TrendingUp className="h-4 w-4" />}>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            {rank != null && (
+              <Stat label="Global rank" value={`#${rank.toLocaleString()}`} trend={rankDelta} />
+            )}
+            {mangabakaRating != null && (
+              <Stat label="MangaBaka score" value={mangabakaRating.toFixed(1)} hint="/ 10" />
+            )}
+            {chapters != null && <Stat label="Chapters" value={String(chapters)} />}
+            {volumes != null && <Stat label="Volumes" value={String(volumes)} />}
+          </div>
+          {rankSeries.length >= 3 && (
+            <div className="mt-5">
+              <div className="mb-1.5 flex items-center justify-between text-xs text-muted-foreground">
+                <span>Popularity rank</span>
+                <span>last 12 months</span>
+              </div>
+              <Sparkline
+                values={rankSeries}
+                invert
+                className="h-14 w-full text-primary"
+                label="MangaBaka popularity rank over the last 12 months"
+              />
+            </div>
+          )}
+        </TitleSection>
+      )}
+
+      <TitleSection title="Details" icon={<Layers className="h-4 w-4" />}>
         <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3 lg:grid-cols-4">
           <DetailItem label="Type">{mediaTypeLabel(title.mediaType)}</DetailItem>
           {title.status != null && (
@@ -358,16 +368,12 @@ export default async function TitlePage({
           {title.episodeCount != null && (
             <DetailItem label="Episodes">{title.episodeCount}</DetailItem>
           )}
-          {title.chapterCount != null && (
-            <DetailItem label="Chapters">{title.chapterCount}</DetailItem>
-          )}
-          {title.volumeCount != null && (
-            <DetailItem label="Volumes">{title.volumeCount}</DetailItem>
-          )}
+          {chapters != null && <DetailItem label="Chapters">{chapters}</DetailItem>}
+          {volumes != null && <DetailItem label="Volumes">{volumes}</DetailItem>}
           {(title.startDate || title.endDate) && (
             <DetailItem label="Published">
               {formatDate(title.startDate)}
-              {title.endDate ? ` – ${formatDate(title.endDate)}` : ""}
+              {title.endDate ? ` â€“ ${formatDate(title.endDate)}` : ""}
             </DetailItem>
           )}
           {title.score != null && (
@@ -379,10 +385,10 @@ export default async function TitlePage({
           {mangaMeta?.isLicensed && <DetailItem label="Licensed">Yes</DetailItem>}
           {mangaMeta?.hasAnime && <DetailItem label="Anime adaptation">Yes</DetailItem>}
         </dl>
-      </Section>
+      </TitleSection>
 
       {hasContributors && (
-        <Section title="Credits" icon={<Users className="h-4 w-4" />}>
+        <TitleSection title="Credits" icon={<Users className="h-4 w-4" />}>
           <div className="grid gap-4 sm:grid-cols-3">
             {authors.length > 0 && <Contributor label="Authors" values={authors} />}
             {artists.length > 0 && <Contributor label="Artists" values={artists} />}
@@ -394,11 +400,11 @@ export default async function TitlePage({
               />
             )}
           </div>
-        </Section>
+        </TitleSection>
       )}
 
       {(relatedRows.length > 0 || title.malId != null) && (
-        <Section
+        <TitleSection
           title="Related"
           icon={<Link2 className="h-4 w-4" />}
           action={title.malId != null ? <SyncRelationsButton titleId={id} /> : undefined}
@@ -424,11 +430,11 @@ export default async function TitlePage({
           ) : (
             <p className="text-sm text-muted-foreground">No related titles found yet.</p>
           )}
-        </Section>
+        </TitleSection>
       )}
 
       {lib && (
-        <Section title="External links" icon={<ExternalLink className="h-4 w-4" />}>
+        <TitleSection title="External links" icon={<ExternalLink className="h-4 w-4" />}>
           <ExternalLinksManager
             titleId={id}
             links={linkRows.map((l) => ({
@@ -438,22 +444,22 @@ export default async function TitlePage({
               linkType: l.linkType as LinkType,
             }))}
           />
-        </Section>
+        </TitleSection>
       )}
 
       {lib && (
         <div className="grid gap-5 lg:grid-cols-2">
-          <Section title="Notes" icon={<NotebookPen className="h-4 w-4" />}>
+          <TitleSection title="Notes" icon={<NotebookPen className="h-4 w-4" />}>
             <NotesEditor titleId={id} initial={note?.content ?? ""} />
-          </Section>
-          <Section title="Your rating" icon={<Star className="h-4 w-4" />}>
+          </TitleSection>
+          <TitleSection title="Your rating" icon={<Star className="h-4 w-4" />}>
             <RatingControl titleId={id} initial={rating?.score ?? null} />
-          </Section>
-          <Section title="Your tags" icon={<Tags className="h-4 w-4" />}>
+          </TitleSection>
+          <TitleSection title="Your tags" icon={<Tags className="h-4 w-4" />}>
             <TagsManager titleId={id} tags={tagRows.map((t) => ({ id: t.id, name: t.name }))} />
-          </Section>
+          </TitleSection>
           {history.length > 0 && (
-            <Section title="Recent progress" icon={<History className="h-4 w-4" />}>
+            <TitleSection title="Recent progress" icon={<History className="h-4 w-4" />}>
               <ul className="space-y-1.5 text-sm">
                 {history.map((h) => (
                   <li
@@ -470,81 +476,10 @@ export default async function TitlePage({
                   </li>
                 ))}
               </ul>
-            </Section>
+            </TitleSection>
           )}
         </div>
       )}
-    </div>
-  );
-}
-
-function ProviderLink({ href, label }: { href: string; label: string }) {
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noreferrer"
-      className="inline-flex items-center gap-1.5 rounded-md border border-input px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-    >
-      <ExternalLink className="h-3.5 w-3.5" /> {label}
-    </a>
-  );
-}
-
-function Section({
-  title,
-  icon,
-  action,
-  children,
-}: {
-  title: string;
-  icon?: ReactNode;
-  action?: ReactNode;
-  children: ReactNode;
-}) {
-  return (
-    <Card>
-      <CardHeader className="flex-row items-center justify-between space-y-0">
-        <CardTitle className="flex items-center gap-2">
-          {icon} {title}
-        </CardTitle>
-        {action}
-      </CardHeader>
-      <CardContent>{children}</CardContent>
-    </Card>
-  );
-}
-
-function DetailItem({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="min-w-0">
-      <dt className="text-xs uppercase tracking-wide text-muted-foreground">{label}</dt>
-      <dd className="mt-0.5 truncate text-sm">{children}</dd>
-    </div>
-  );
-}
-
-function Contributor({
-  label,
-  values,
-  icon,
-}: {
-  label: string;
-  values: string[];
-  icon?: ReactNode;
-}) {
-  return (
-    <div>
-      <p className="mb-1.5 flex items-center gap-1.5 text-xs uppercase tracking-wide text-muted-foreground">
-        {icon} {label}
-      </p>
-      <div className="flex flex-wrap gap-1.5">
-        {values.map((value) => (
-          <span key={value} className="rounded-full bg-muted px-2.5 py-1 text-xs">
-            {value}
-          </span>
-        ))}
-      </div>
     </div>
   );
 }

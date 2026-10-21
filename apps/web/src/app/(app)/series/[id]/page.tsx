@@ -1,25 +1,33 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import {
-  ArrowLeft,
   BookOpenText,
-  CalendarDays,
-  ExternalLink,
-  Users,
+  Building2,
+  Layers,
   Star,
   TrendingUp,
+  Users,
 } from "lucide-react";
 import { getDb } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-import { mangabakaSeries, titleComments, users } from "@ambl/database";
+import { mangabakaSeries, titleComments, titles, userLibrary, users } from "@ambl/database";
 import { getMangabakaSeries, toDiscoverItem } from "@/lib/mangabaka";
 import type { MediaStatus, MediaType } from "@ambl/types";
-import { mediaStatusBadge, mediaStatusLabel, mediaTypeLabel } from "@/lib/format";
-import { MediaTypeBadge } from "@/components/status-badge";
+import { mediaStatusLabel, mediaTypeLabel } from "@/lib/format";
 import { CommentSection, type CommentItem } from "@/components/comment-section";
 import { AddSeriesButton } from "@/components/add-series-button";
+import { StatusBadge } from "@/components/status-badge";
+import { Sparkline } from "@/components/sparkline";
+import { TitleHero } from "@/components/title/title-hero";
+import { findTitleIdByExternalId } from "@/lib/external-ids";
+import {
+  Contributor,
+  DetailItem,
+  Stat,
+  TitleSection,
+} from "@/components/title/title-section";
 import { Badge } from "@/components/ui/badge";
 
 export const dynamic = "force-dynamic";
@@ -151,18 +159,6 @@ export async function generateMetadata({
   return { title: series?.title ?? "Title" };
 }
 
-function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
-  if (value == null || value === "") return null;
-  return (
-    <div className="flex flex-col gap-0.5 border-b border-border/60 py-2 last:border-b-0 sm:flex-row sm:items-center sm:gap-3">
-      <dt className="w-40 shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        {label}
-      </dt>
-      <dd className="text-sm">{value}</dd>
-    </div>
-  );
-}
-
 export default async function SeriesPage({
   params,
 }: {
@@ -177,6 +173,38 @@ export default async function SeriesPage({
   if (!series) notFound();
 
   const db = getDb();
+
+  const [localTitle] = series.malId != null
+    ? await db.select().from(titles).where(eq(titles.malId, series.malId)).limit(1)
+    : [];
+
+  // MangaBaka rows do not always expose a MAL id. Fall back to the external-id
+  // link table so a title added from Discover is recognised as "in library".
+  let linkedTitle = localTitle;
+  if (!linkedTitle) {
+    const linkedTitleId = await findTitleIdByExternalId("mangabaka", series.id);
+    if (linkedTitleId) {
+      [linkedTitle] = await db
+        .select()
+        .from(titles)
+        .where(eq(titles.id, linkedTitleId))
+        .limit(1);
+    }
+  }
+
+  const [lib] = linkedTitle
+    ? await db
+        .select()
+        .from(userLibrary)
+        .where(
+          and(
+            eq(userLibrary.userId, user.id),
+            eq(userLibrary.titleId, linkedTitle.id),
+          ),
+        )
+        .limit(1)
+    : [];
+
   const commentRows = await db
     .select({
       id: titleComments.id,
@@ -201,231 +229,229 @@ export default async function SeriesPage({
     authorAvatar: c.authorAvatar,
   }));
 
-  const displayEnglish =
-    series.englishTitle && series.englishTitle !== series.title ? series.englishTitle : null;
+  const mediaPath = series.mediaType === "ANIME" ? "anime" : "manga";
+  const score = series.rating != null ? Math.round(series.rating) / 10 : null;
+  const rank = series.popularity;
+  const rankSeries = series.popularityHistory
+    .map((point) => point.value)
+    .filter((value): value is number => value != null);
+  const rank1mo = series.popularityHistory.find((point) => point.label === "1mo")?.value ?? null;
+  const rankDelta = rank != null && rank1mo != null ? rank - rank1mo : null;
+
+  const links = [
+    series.canonicalUrl ? { href: series.canonicalUrl, label: "MangaBaka" } : null,
+    series.malId != null
+      ? { href: `https://myanimelist.net/${mediaPath}/${series.malId}`, label: "MyAnimeList" }
+      : null,
+    series.anilistId != null
+      ? { href: `https://anilist.co/${mediaPath}/${series.anilistId}`, label: "AniList" }
+      : null,
+  ].filter((link): link is { href: string; label: string } => link != null);
+
+  const published =
+    series.startDate || series.endDate
+      ? `${series.startDate ?? "?"} → ${series.endDate ?? "ongoing"}`
+      : series.year != null
+        ? String(series.year)
+        : null;
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <Link
-        href="/discover"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <ArrowLeft className="h-4 w-4" /> Back to Discover
-      </Link>
+    <div className="mx-auto max-w-4xl space-y-5">
+      <TitleHero
+        backHref="/discover"
+        backLabel="Back to Discover"
+        data={{
+          title: series.title,
+          englishTitle: series.englishTitle,
+          nativeTitle: series.nativeTitle,
+          japaneseTitle: series.japaneseTitle,
+          coverUrl: series.coverUrl,
+          mediaType: series.mediaType ?? "MANGA",
+          status: series.status,
+          year: series.year,
+          startDate: series.startDate,
+          endDate: series.endDate,
+          score,
+          rank,
+          chapters: series.totalChapters,
+          volumes: series.finalVolume,
+          genres: series.genres,
+          links,
+          libraryStatus: lib ? <StatusBadge status={lib.status} /> : null,
+        }}
+        actions={
+          lib && linkedTitle ? (
+            <Link
+              href={`/title/${linkedTitle.id}`}
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              <BookOpenText className="h-3.5 w-3.5" /> Open in library
+            </Link>
+          ) : (
+            <AddSeriesButton
+              mangabakaId={series.id}
+              mediaType={series.mediaType ?? "MANGA"}
+            />
+          )
+        }
+      />
 
-      <div className="flex flex-col gap-5 sm:flex-row">
-        <div className="w-full max-w-[200px] shrink-0 self-center sm:self-start">
-          <div className="relative aspect-[2/3] overflow-hidden rounded-xl border bg-muted shadow-sm">
-            {series.coverUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={series.coverUrl}
-                alt={series.title}
-                referrerPolicy="no-referrer"
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <span className="cover-fallback flex h-full w-full items-center justify-center text-muted-foreground">
-                <BookOpenText className="h-10 w-10" />
-              </span>
-            )}
-          </div>
-        </div>
-
-        <div className="min-w-0 flex-1 space-y-3">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">{series.title}</h1>
-            {displayEnglish && (
-              <p className="text-sm text-muted-foreground">{displayEnglish}</p>
-            )}
-            {(series.nativeTitle || series.japaneseTitle) && (
-              <p className="text-sm text-muted-foreground">
-                {[series.nativeTitle, series.japaneseTitle].filter(Boolean).join(" · ")}
-              </p>
-            )}
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            {series.mediaType && <MediaTypeBadge type={series.mediaType} />}
-            {series.status && (
-              <Badge variant={mediaStatusBadge(series.status)}>
-                {mediaStatusLabel(series.status)}
-              </Badge>
-            )}
-            {series.year && <Badge variant="outline">{series.year}</Badge>}
-            {series.contentRating && <Badge variant="secondary">{series.contentRating}</Badge>}
-            {series.isLicensed && <Badge variant="outline">Licensed</Badge>}
-            {series.hasAnime && <Badge variant="outline">Has anime</Badge>}
-          </div>
-
-          <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-            {series.rating != null && (
-              <span className="inline-flex items-center gap-1 text-foreground">
-                <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
-                <span className="font-semibold">{(series.rating / 10).toFixed(2)}</span>
-                <span className="text-muted-foreground">/ 10</span>
-              </span>
-            )}
-            {series.popularity != null && (
-              <span className="inline-flex items-center gap-1">
-                <TrendingUp className="h-4 w-4" /> {series.popularity.toLocaleString()}
-              </span>
-            )}
-            {series.totalChapters != null && (
-              <span className="inline-flex items-center gap-1">
-                <BookOpenText className="h-4 w-4" /> {series.totalChapters} chapters
-              </span>
-            )}
-            {series.finalVolume != null && (
-              <span className="inline-flex items-center gap-1">
-                <Users className="h-4 w-4" /> {series.finalVolume} volumes
-              </span>
-            )}
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <AddSeriesButton mangabakaId={series.id} mediaType={series.mediaType ?? "MANGA"} />
-            {series.canonicalUrl && (
-              <a
-                href={series.canonicalUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-input px-3 text-sm font-medium transition-colors hover:bg-accent"
-              >
-                <ExternalLink className="h-3.5 w-3.5" /> MangaBaka
-              </a>
-            )}
-            {series.malId != null && (
-              <a
-                href={`https://myanimelist.net/manga/${series.malId}`}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-input px-3 text-sm font-medium transition-colors hover:bg-accent"
-              >
-                <ExternalLink className="h-3.5 w-3.5" /> MyAnimeList
-              </a>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {series.synopsis && (
-        <section className="space-y-2">
-          <h2 className="text-lg font-semibold">Synopsis</h2>
-          <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
+      <TitleSection title="Overview" icon={<BookOpenText className="h-4 w-4" />}>
+        {series.synopsis ? (
+          <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
             {series.synopsis}
           </p>
-        </section>
-      )}
+        ) : (
+          <p className="text-sm text-muted-foreground">No synopsis available.</p>
+        )}
 
-      {series.genres.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {series.genres.map((g) => (
-            <Badge key={g}>{g}</Badge>
-          ))}
-        </div>
-      )}
+        {series.genres.length > 0 && (
+          <div className="mt-4">
+            <p className="mb-1.5 text-xs uppercase tracking-wide text-muted-foreground">
+              Genres
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {series.genres.map((genre) => (
+                <Badge key={genre}>{genre}</Badge>
+              ))}
+            </div>
+          </div>
+        )}
 
-      {series.tags.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {series.tags.map((t) => (
-            <Badge key={t} variant="secondary">
-              {t}
-            </Badge>
-          ))}
-        </div>
-      )}
-
-      <section className="rounded-xl border bg-card p-4">
-        <h2 className="mb-2 text-lg font-semibold">Details</h2>
-        <dl>
-          <InfoRow
-            label="Alternative titles"
-            value={
-              [series.englishTitle, series.nativeTitle, series.japaneseTitle]
-                .filter((v): v is string => Boolean(v) && v !== series.title)
-                .join(" · ") || null
-            }
-          />
-          <InfoRow label="Type" value={series.mediaType ? mediaTypeLabel(series.mediaType) : null} />
-          <InfoRow
-            label="Status"
-            value={series.status ? mediaStatusLabel(series.status) : null}
-          />
-          <InfoRow
-            label="Published"
-            value={
-              series.startDate || series.endDate
-                ? `${series.startDate ?? "?"} → ${series.endDate ?? "ongoing"}`
-                : series.year
-                  ? String(series.year)
-                  : null
-            }
-          />
-          <InfoRow label="Authors" value={series.authors.join(", ") || null} />
-          <InfoRow label="Artists" value={series.artists.join(", ") || null} />
-          <InfoRow
-            label="Publishers"
-            value={series.publishers.map((p) => p.name).filter(Boolean).join(", ") || null}
-          />
-          <InfoRow
-            label="Score"
-            value={series.rating != null ? `${(series.rating / 10).toFixed(2)} / 10` : null}
-          />
-          <InfoRow
-            label="Popularity"
-            value={series.popularity != null ? series.popularity.toLocaleString() : null}
-          />
-          <InfoRow label="Chapters" value={series.totalChapters} />
-          <InfoRow label="Volumes" value={series.finalVolume} />
-          <InfoRow
-            label="MAL ID"
-            value={
-              series.malId != null ? (
-                <a
-                  className="text-primary hover:underline"
-                  href={`https://myanimelist.net/manga/${series.malId}`}
-                  target="_blank"
-                  rel="noreferrer"
+        {series.tags.length > 0 && (
+          <div className="mt-4">
+            <p className="mb-1.5 text-xs uppercase tracking-wide text-muted-foreground">
+              Themes
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {series.tags.slice(0, 16).map((tag) => (
+                <span
+                  key={tag}
+                  className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground"
                 >
-                  {series.malId}
-                </a>
-              ) : null
-            }
-          />
-          <InfoRow
-            label="AniList ID"
-            value={
-              series.anilistId != null ? (
-                <a
-                  className="text-primary hover:underline"
-                  href={`https://anilist.co/manga/${series.anilistId}`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  {series.anilistId}
-                </a>
-              ) : null
-            }
-          />
-          <InfoRow
-            label="Last updated"
-            value={
-              series.lastUpdatedAt ? (
-                <span className="inline-flex items-center gap-1.5">
-                  <CalendarDays className="h-3.5 w-3.5" />
-                  {series.lastUpdatedAt.toLocaleDateString()}
+                  {tag}
                 </span>
-              ) : null
-            }
-          />
-        </dl>
-      </section>
+              ))}
+            </div>
+          </div>
+        )}
+      </TitleSection>
 
-      <section className="rounded-xl border bg-card p-4">
-        <h2 className="mb-3 text-lg font-semibold">Comments</h2>
+      {(score != null || rank != null) && (
+        <TitleSection title="Statistics" icon={<TrendingUp className="h-4 w-4" />}>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            {score != null && (
+              <Stat label="Score" value={score.toFixed(1)} hint="/ 10" />
+            )}
+            {rank != null && (
+              <Stat label="Global rank" value={`#${rank.toLocaleString()}`} trend={rankDelta} />
+            )}
+            {series.totalChapters != null && (
+              <Stat label="Chapters" value={String(series.totalChapters)} />
+            )}
+            {series.finalVolume != null && (
+              <Stat label="Volumes" value={String(series.finalVolume)} />
+            )}
+          </div>
+          {rankSeries.length >= 3 && (
+            <div className="mt-5">
+              <div className="mb-1.5 flex items-center justify-between text-xs text-muted-foreground">
+                <span>Popularity rank</span>
+                <span>last 12 months</span>
+              </div>
+              <Sparkline
+                values={rankSeries}
+                invert
+                className="h-14 w-full text-primary"
+                label="MangaBaka popularity rank over the last 12 months"
+              />
+            </div>
+          )}
+        </TitleSection>
+      )}
+
+      <TitleSection title="Details" icon={<Layers className="h-4 w-4" />}>
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3 lg:grid-cols-4">
+          <DetailItem label="Type">
+            {mediaTypeLabel(series.mediaType ?? "MANGA")}
+          </DetailItem>
+          {series.status != null && (
+            <DetailItem label="Status">{mediaStatusLabel(series.status)}</DetailItem>
+          )}
+          {series.year != null && <DetailItem label="Year">{series.year}</DetailItem>}
+          {published && <DetailItem label="Published">{published}</DetailItem>}
+          {series.totalChapters != null && (
+            <DetailItem label="Chapters">{series.totalChapters}</DetailItem>
+          )}
+          {series.finalVolume != null && (
+            <DetailItem label="Volumes">{series.finalVolume}</DetailItem>
+          )}
+          {score != null && <DetailItem label="Score">{score.toFixed(2)} / 10</DetailItem>}
+          {rank != null && (
+            <DetailItem label="Popularity">{rank.toLocaleString()}</DetailItem>
+          )}
+          {series.contentRating && (
+            <DetailItem label="Content rating">{series.contentRating}</DetailItem>
+          )}
+          {series.isLicensed && <DetailItem label="Licensed">Yes</DetailItem>}
+          {series.hasAnime && <DetailItem label="Anime adaptation">Yes</DetailItem>}
+          {series.malId != null && (
+            <DetailItem label="MAL ID">
+              <a
+                className="text-primary hover:underline"
+                href={`https://myanimelist.net/${mediaPath}/${series.malId}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                {series.malId}
+              </a>
+            </DetailItem>
+          )}
+          {series.anilistId != null && (
+            <DetailItem label="AniList ID">
+              <a
+                className="text-primary hover:underline"
+                href={`https://anilist.co/${mediaPath}/${series.anilistId}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                {series.anilistId}
+              </a>
+            </DetailItem>
+          )}
+          {series.lastUpdatedAt && (
+            <DetailItem label="Last updated">
+              {series.lastUpdatedAt.toLocaleDateString()}
+            </DetailItem>
+          )}
+        </dl>
+      </TitleSection>
+
+      {(series.authors.length > 0 ||
+        series.artists.length > 0 ||
+        series.publishers.length > 0) && (
+        <TitleSection title="Credits" icon={<Users className="h-4 w-4" />}>
+          <div className="grid gap-4 sm:grid-cols-3">
+            {series.authors.length > 0 && (
+              <Contributor label="Authors" values={series.authors} />
+            )}
+            {series.artists.length > 0 && (
+              <Contributor label="Artists" values={series.artists} />
+            )}
+            {series.publishers.length > 0 && (
+              <Contributor
+                label="Publishers"
+                values={series.publishers.map((p) => p.name).filter(Boolean)}
+                icon={<Building2 className="h-3.5 w-3.5" />}
+              />
+            )}
+          </div>
+        </TitleSection>
+      )}
+
+      <TitleSection title="Comments" icon={<Star className="h-4 w-4" />}>
         <CommentSection seriesId={series.id} comments={comments} currentUserId={user.id} />
-      </section>
+      </TitleSection>
     </div>
   );
 }

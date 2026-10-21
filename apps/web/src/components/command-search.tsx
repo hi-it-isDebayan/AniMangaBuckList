@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Check, ImageOff, Loader2, Search, Sparkles } from "lucide-react";
 import type { LibraryStatus, MediaType, SearchResultItem } from "@ambl/types";
 import { addTitleAction, addMangabakaTitleAction } from "@/actions/library";
+import { selectAddSource } from "@/lib/add-source";
 import { Badge } from "@/components/ui/badge";
 import { ProviderIcon } from "@/components/provider-icon";
 import { cn } from "@/lib/utils";
@@ -123,15 +124,18 @@ export function CommandSearch() {
   const add = async (item: SearchItem, status: LibraryStatus) => {
     const key = itemKey(item);
     setPendingKey(key);
+    // Metadata source preference lives in `selectAddSource`: MangaBaka for
+    // manga-family titles (richer chapters/credits/stats), MAL otherwise.
+    const source = selectAddSource(item);
     const res =
-      item.malId != null
-        ? await addTitleAction({
-            malId: item.malId,
-            mediaType: item.mediaType as MediaType,
-            status,
-          })
-        : item.mangabakaId != null
-          ? await addMangabakaTitleAction({ mangabakaId: item.mangabakaId, status })
+      source === "mangabaka"
+        ? await addMangabakaTitleAction({ mangabakaId: item.mangabakaId!, status })
+        : source === "mal"
+          ? await addTitleAction({
+              malId: item.malId!,
+              mediaType: item.mediaType as MediaType,
+              status,
+            })
           : null;
     setPendingKey(null);
     if (!res) {
@@ -168,6 +172,19 @@ export function CommandSearch() {
                 <div className="flex items-center gap-2 px-3 py-6 text-sm text-muted-foreground">
                   <Sparkles className="h-4 w-4" /> Nothing found for "{query.trim()}".
                 </div>
+              )}
+              {!loading && query.trim().length >= 2 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpen(false);
+                    router.push(`/search?q=${encodeURIComponent(query.trim())}`);
+                  }}
+                  className="mt-1 flex w-full items-center justify-between gap-2 rounded-lg border border-dashed px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
+                >
+                  <span>See all results in the catalogue</span>
+                  <span aria-hidden>→</span>
+                </button>
               )}
               {!loading &&
                 items.map((item) => {

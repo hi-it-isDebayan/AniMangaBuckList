@@ -7,6 +7,8 @@ import type { ProviderProgressBadge, TrackerProvider, SearchResultItem } from "@
 import { getDb } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { ensureMangabakaSynced } from "@/lib/provider-sync";
+import { searchLocalCatalog } from "@/lib/search-catalog";
+import type { CatalogItem } from "@/lib/catalog";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +25,35 @@ const PROVIDER_LABEL: Record<string, string> = {
   anilist: "AniList",
   jikan: "Jikan",
 };
+
+function catalogToSearchItem(item: CatalogItem) {
+  return {
+    id: item.mangabakaId ?? undefined,
+    mangabakaId: item.mangabakaId,
+    malId: item.malId,
+    anilistId: item.anilistId,
+    title: item.title,
+    englishTitle: item.englishTitle,
+    japaneseTitle: item.japaneseTitle,
+    synonyms: [],
+    mediaType: item.mediaType,
+    synopsis: item.synopsis,
+    status: item.status,
+    episodeCount: item.episodeCount,
+    chapterCount: item.chapterCount,
+    volumeCount: item.volumeCount,
+    startDate: item.startDate,
+    endDate: item.endDate,
+    season: null,
+    year: item.year,
+    coverUrl: item.coverUrl,
+    score: item.score,
+    genres: item.genres,
+    source: "mangabaka" as const,
+    titleId: item.titleId,
+    inLibrary: item.inLibrary,
+  };
+}
 
 function badgeFor(entry: (typeof providerEntries.$inferSelect)[] | null): ProviderProgressBadge | null {
   const first = entry?.[0];
@@ -62,7 +93,25 @@ export async function GET(req: NextRequest) {
   }
 
   const source = parsed.data.source;
-  let allItems: any[] = [];
+  const allItems: any[] = [];
+
+  // The local catalogue is the first stop for manga-family queries: it is fast,
+  // complete for already-ingested titles, and independent of upstream uptime.
+  if (parsed.data.type !== "ANIME" && (source === "all" || source === "mangabaka")) {
+    try {
+      const local = await searchLocalCatalog({
+        q: parsed.data.q,
+        format: "ALL",
+        year: null,
+        sort: "trending",
+        page: 1,
+        limit: parsed.data.limit,
+      });
+      allItems.push(...local.items.map(catalogToSearchItem));
+    } catch (err) {
+      console.warn("Local catalogue search failed:", err);
+    }
+  }
 
   // Search MangaBaka if requested
   if (source === "all" || source === "mangabaka") {
@@ -102,9 +151,14 @@ export async function GET(req: NextRequest) {
   const seen = new Set<string>();
   const uniqueItems: any[] = [];
   for (const item of allItems) {
-    const key = item.malId ? `mal:${item.malId}` : item.anilistId ? `anilist:${item.anilistId}` : `id:${item.id}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
+    const keys = [
+      item.mangabakaId != null ? `mb:${item.mangabakaId}` : null,
+      item.malId != null ? `mal:${item.malId}` : null,
+      item.anilistId != null ? `anilist:${item.anilistId}` : null,
+    ].filter((key): key is string => key != null);
+    if (keys.length === 0) keys.push(`id:${item.id}`);
+    if (keys.some((key) => seen.has(key))) continue;
+    for (const key of keys) seen.add(key);
     uniqueItems.push(item);
   }
 
@@ -144,7 +198,9 @@ export async function GET(req: NextRequest) {
   }
 
   const enriched = uniqueItems.map((item) => {
-    const titleId = item.malId == null ? null : titleIdByMalId.get(item.malId) ?? null;
+    const titleId =
+      item.titleId ??
+      (item.malId == null ? null : titleIdByMalId.get(item.malId) ?? null);
 
     const candidates = [
       ...(item.malId != null ? byMalId.get(item.malId) ?? [] : []),
