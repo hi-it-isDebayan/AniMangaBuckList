@@ -223,7 +223,10 @@ const UPSERT_COLUMNS = [
 ] as const;
 
 function snakeCase(col: string): string {
-  return col.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`);
+  return col
+    .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+    .replace(/([a-zA-Z])(\d)/g, "$1_$2")
+    .toLowerCase();
 }
 
 type InsertKey = keyof MangabakaSeriesInsert;

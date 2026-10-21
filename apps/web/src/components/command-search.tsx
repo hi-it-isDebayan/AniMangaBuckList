@@ -173,6 +173,19 @@ export function CommandSearch() {
                   <Sparkles className="h-4 w-4" /> Nothing found for "{query.trim()}".
                 </div>
               )}
+              {!loading && query.trim().length >= 2 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpen(false);
+                    router.push(`/search?q=${encodeURIComponent(query.trim())}`);
+                  }}
+                  className="mt-1 flex w-full items-center justify-between gap-2 rounded-lg border border-dashed px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
+                >
+                  <span>See all results in the catalogue</span>
+                  <span aria-hidden>→</span>
+                </button>
+              )}
               {!loading &&
                 items.map((item) => {
                   const key = itemKey(item);

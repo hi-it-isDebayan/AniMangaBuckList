@@ -9,7 +9,8 @@ import {
   type DiscoverSort,
 } from "@/lib/mangabaka";
 import { findDiscover } from "@/lib/discover";
-import { DiscoverCard } from "@/components/discover-card";
+import { CatalogCard } from "@/components/catalog-card";
+import { discoverItemToCatalogItem } from "@/lib/catalog";
 import { EmptyState } from "@/components/empty-state";
 import { Pagination } from "@/components/pagination";
 import { SegmentedTabs } from "@/components/segmented-tabs";
@@ -130,9 +131,10 @@ export default async function DiscoverPage({
           />
         ) : (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-            {result.items.map((item) => (
-              <DiscoverCard key={item.id} item={item} />
-            ))}
+            {result.items.map((item) => {
+              const catalogItem = discoverItemToCatalogItem(item, { source: "local" });
+              return <CatalogCard key={catalogItem.key} item={catalogItem} />;
+            })}
           </div>
         )}
 

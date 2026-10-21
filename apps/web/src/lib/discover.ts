@@ -1,8 +1,9 @@
 import { db } from "@/lib/db";
 import { mangabakaSeries } from "@ambl/database";
-import { desc, asc, eq, and, gte, lte, count, sql } from "drizzle-orm";
+import { desc, asc, eq, and, gte, lte, lt, isNull, or, count, sql } from "drizzle-orm";
 import { discoverSeries } from "./mangabaka";
 import type { DiscoverItem, DiscoverResult } from "./mangabaka";
+import { NEW_WINDOW_YEARS, PROMOTE_CHAPTERS } from "./catalogue-policy";
 
 const PAGE_SIZE = 24;
 
@@ -67,44 +68,10 @@ export async function findDiscover(options: {
 
   const { orderBy, fallbackSort } = parseDiscoverSort(options.sort);
   const mediaType = parseDiscoverFormat(options.format);
+  const promoteYearFloor = new Date().getFullYear() - NEW_WINDOW_YEARS;
 
   try {
     const dbInstance = db();
-    
-    let countResult;
-    if (mediaType && options.year) {
-      countResult = await dbInstance
-        .select({ count: count() })
-        .from(mangabakaSeries)
-        .where(and(
-          eq(mangabakaSeries.mediaType, mediaType),
-          eq(mangabakaSeries.year, options.year)
-        ));
-    } else if (mediaType) {
-      countResult = await dbInstance
-        .select({ count: count() })
-        .from(mangabakaSeries)
-        .where(eq(mangabakaSeries.mediaType, mediaType));
-    } else if (options.year) {
-      countResult = await dbInstance
-        .select({ count: count() })
-        .from(mangabakaSeries)
-        .where(eq(mangabakaSeries.year, options.year));
-    } else {
-      countResult = await dbInstance
-        .select({ count: count() })
-        .from(mangabakaSeries);
-    }
-
-    const totalCount = countResult[0]?.count ?? 0;
-    
-    if (totalCount === 0) {
-      throw new Error("No records in database");
-    }
-
-    let query = dbInstance
-      .select()
-      .from(mangabakaSeries);
 
     const conditions = [];
     if (mediaType) {
@@ -113,16 +80,42 @@ export async function findDiscover(options: {
     if (options.year) {
       conditions.push(eq(mangabakaSeries.year, options.year));
     }
+    // Unpromoted recent titles live on /new until they reach the promotion
+    // threshold (or age out of the "new" window).
+    conditions.push(
+      or(
+        gte(sql`coalesce(${mangabakaSeries.totalChapters}, 0)`, PROMOTE_CHAPTERS),
+        lt(mangabakaSeries.year, promoteYearFloor),
+        isNull(mangabakaSeries.year),
+      ),
+    );
+    const where = and(...conditions);
 
-    const itemsQuery = dbInstance
+    const countResult = await dbInstance
+      .select({ count: count() })
+      .from(mangabakaSeries)
+      .where(where);
+    const totalCount = countResult[0]?.count ?? 0;
+
+    if (totalCount === 0) {
+      // Fall back to the live API only when the local catalogue is empty.
+      const anyResult = await dbInstance
+        .select({ count: count() })
+        .from(mangabakaSeries);
+      if ((anyResult[0]?.count ?? 0) > 0) {
+        return { items: [], count: 0, page, totalPages: 1 };
+      }
+      throw new Error("No records in database");
+    }
+
+    const rows = await dbInstance
       .select()
       .from(mangabakaSeries)
-      .where(conditions.length ? and(...conditions) : undefined)
+      .where(where)
       .orderBy(orderBy)
       .limit(limit)
       .offset(offset);
 
-    const rows = await itemsQuery;
     const items = rows.map(rowToDiscoverItem);
 
     return {
@@ -140,5 +133,63 @@ export async function findDiscover(options: {
       page,
       limit,
     });
+  }
+}
+
+/**
+ * The "New" feed: recent titles that have not yet reached the promotion
+ * threshold (70+ chapters for manga-family). Promoted titles live in Discover;
+ * this view exists so freshly added series are still easy to find.
+ */
+export async function findNewReleases(options: {
+  format: string;
+  page?: number;
+}): Promise<DiscoverResult> {
+  const limit = PAGE_SIZE;
+  const page = Math.max(1, options.page ?? 1);
+  const offset = (page - 1) * limit;
+  const mediaType = parseDiscoverFormat(options.format);
+  const yearFloor = new Date().getFullYear() - NEW_WINDOW_YEARS;
+
+  const conditions = [
+    lt(sql`coalesce(${mangabakaSeries.totalChapters}, 0)`, PROMOTE_CHAPTERS),
+    gte(mangabakaSeries.year, yearFloor),
+  ];
+  if (mediaType) conditions.push(eq(mangabakaSeries.mediaType, mediaType));
+  const where = and(...conditions);
+
+  try {
+    const dbInstance = db();
+    const countResult = await dbInstance
+      .select({ count: count() })
+      .from(mangabakaSeries)
+      .where(where);
+    const totalCount = countResult[0]?.count ?? 0;
+
+    if (totalCount === 0) {
+      return { items: [], count: 0, page, totalPages: 1 };
+    }
+
+    const rows = await dbInstance
+      .select()
+      .from(mangabakaSeries)
+      .where(where)
+      .orderBy(
+        desc(mangabakaSeries.year),
+        asc(mangabakaSeries.popularity),
+        desc(mangabakaSeries.ingestedAt),
+      )
+      .limit(limit)
+      .offset(offset);
+
+    return {
+      items: rows.map(rowToDiscoverItem),
+      count: totalCount,
+      page,
+      totalPages: Math.max(1, Math.ceil(totalCount / limit)),
+    };
+  } catch (e) {
+    console.warn("Database new-release query failed:", e);
+    return { items: [], count: 0, page, totalPages: 1 };
   }
 }
