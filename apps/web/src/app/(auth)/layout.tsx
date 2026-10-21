@@ -23,7 +23,7 @@ async function AuthedGate({ children }: { children: React.ReactNode }) {
     <main className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-muted/40 p-6">
       <div
         aria-hidden="true"
-        className="absolute inset-0 bg-[url('/animeOpening.png')] bg-cover bg-center"
+        className="absolute inset-0 bg-[url('/animeOpening.jpg')] bg-cover bg-center bg-no-repeat"
       />
       <div
         aria-hidden="true"
