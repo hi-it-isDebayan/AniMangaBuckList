@@ -5,10 +5,8 @@ import { Button } from "@/components/ui/button";
 import { requireUser } from "@/lib/auth";
 import { listLinkedSources, listSources } from "@/lib/sources/service";
 import { loadSourceUsage } from "@/lib/sources/usage";
-import { RegisterSourceForm } from "@/components/sources/register-source-form";
-import { SourceRowActions } from "@/components/sources/source-row-actions";
-import { SiteLogo } from "@/components/sources/site-logo";
-import { UsageHistogram } from "@/components/sources/usage-histogram";
+import { AddSourcePanel } from "@/components/sources/add-source-panel";
+import { SourceCard } from "@/components/sources/source-card";
 
 export const metadata: Metadata = { title: "Discover sources" };
 export const dynamic = "force-dynamic";
@@ -38,21 +36,15 @@ export default async function SourcesPage({
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-6 px-3 py-6 sm:px-4">
-      <div>
-        <h1 className="text-2xl font-semibold">Discover sources</h1>
-        <p className="text-sm text-muted-foreground">
-          Community source directory. Register a site once; everyone links to the same entry.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold">Discover sources</h1>
+          <p className="text-sm text-muted-foreground">
+            Community source directory. Register a site once; everyone links to the same entry.
+          </p>
+        </div>
+        <AddSourcePanel />
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Register a source</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <RegisterSourceForm />
-        </CardContent>
-      </Card>
 
       <Card>
         <CardHeader>
@@ -107,43 +99,14 @@ export default async function SourcesPage({
         {sources.length === 0 ? (
           <p className="text-sm text-muted-foreground">No sources match your search yet.</p>
         ) : (
-          sources.map((source) => {
-            const sourceUsage = usage.get(source.id);
-            return (
-              <div key={source.id} className="rounded-lg border border-border bg-card p-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <SiteLogo domain={source.domain} name={source.name} size={40} />
-                    <div className="min-w-0">
-                      <a
-                        href={source.homepageUrl}
-                        target="_blank"
-                        rel="noreferrer noopener nofollow"
-                        className="block truncate font-medium underline-offset-4 hover:underline"
-                      >
-                        {source.name}
-                      </a>
-                      <a
-                        href={source.homepageUrl}
-                        target="_blank"
-                        rel="noreferrer noopener nofollow"
-                        className="block truncate text-xs text-muted-foreground underline-offset-2 hover:underline"
-                      >
-                        {source.domain}
-                      </a>
-                    </div>
-                  </div>
-                  {linkedIds.has(source.id) ? (
-                    <span className="text-xs text-primary">Linked</span>
-                  ) : null}
-                </div>
-                {sourceUsage ? <UsageHistogram usage={sourceUsage} className="mt-4" /> : null}
-                <div className="mt-3">
-                  <SourceRowActions sourceId={source.id} linked={linkedIds.has(source.id)} />
-                </div>
-              </div>
-            );
-          })
+          sources.map((source) => (
+            <SourceCard
+              key={source.id}
+              source={source}
+              usage={usage.get(source.id)}
+              linked={linkedIds.has(source.id)}
+            />
+          ))
         )}
       </div>
     </div>
