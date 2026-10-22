@@ -22,15 +22,12 @@ import {
 const DEFAULT_URL = "https://api.mangabaka.org/v1/database/series.jsonl.tar.gz";
 const MEMBER_NAME = "series.jsonl";
 
-const DEFAULT_POPULARITY_CUTOFF = 20000;
-const DEFAULT_RATING_FLOOR = 70;
-const RECENT_YEAR = new Date().getFullYear() - 1;
-const RECENT_MS = 90 * 24 * 60 * 60 * 1000;
+const DEFAULT_CATALOGUE_YEARS = 10;
 const BATCH_SIZE = 500; // smaller for safe streaming
 
+// Hard cap on catalogue rows. The rolling year window is the primary policy;
+// this is a safety net so the table cannot grow without bound.
 const DEFAULT_CATALOGUE_LIMIT = 220_000;
-const DEFAULT_FROM_YEAR = 2000;
-const DEFAULT_TO_YEAR = new Date().getFullYear();
 
 function loadEnvFile(file: string) {
   if (!fs.existsSync(file)) return false;
@@ -85,38 +82,18 @@ function isReferenced(rec: MangabakaRoot, refs: RefSets): boolean {
   return false;
 }
 
-interface KeepOptions {
-  popularityCutoff: number;
-  ratingFloor: number;
-  fromYear: number;
-  toYear: number;
-  includeFinished: boolean;
-}
-
-function shouldKeep(
-  rec: MangabakaRoot,
-  refs: RefSets,
-  now: number,
-  options: KeepOptions,
-): boolean {
-  if ((rec.content_rating || "").toLowerCase() === "erotica") return false;
+function shouldKeep(rec: MangabakaRoot, refs: RefSets, cutoffYear: number): boolean {
+  // Existing references always win over the catalogue age filter so older
+  // titles already used by the app remain available.
   if (isReferenced(rec, refs)) return true;
-  if (!options.includeFinished && rec.state && rec.state !== "active") return false;
+  if ((rec.content_rating || "").toLowerCase() === "erotica") return false;
+  if (rec.state && rec.state !== "active") return false;
 
+  // Keep the active catalogue to the rolling last N calendar years. Popularity
+  // and last-updated timestamps must not pull old titles back into the DB;
+  // older/unknown-year titles can still be fetched on demand from MangaBaka.
   const year = num(rec.year) ?? parseYear(rec.published?.start_date);
-  if (typeof year === "number" && (year < options.fromYear || year > options.toYear)) {
-    return false;
-  }
-
-  const popular = rec.popularity?.global?.current;
-  if (typeof popular === "number" && popular <= options.popularityCutoff) return true;
-  if (typeof rec.rating === "number" && rec.rating >= options.ratingFloor) return true;
-  if (typeof year === "number" && year >= RECENT_YEAR) return true;
-  if (rec.last_updated_at) {
-    const t = Date.parse(rec.last_updated_at);
-    if (!Number.isNaN(t) && now - t <= RECENT_MS) return true;
-  }
-  return false;
+  return typeof year === "number" && year >= cutoffYear;
 }
 
 /**
@@ -153,12 +130,16 @@ async function pruneCatalogue(
   let rangeDeleted = 0;
   if (!options.dryRun) {
     // Keep only the requested publication-year window, never touching titles
-    // that are referenced by a library.
+    // that are referenced by a library. The year fallback mirrors the ingest
+    // policy (year column, else publication start date).
     const rangeRows = (await sqlClient`
       delete from mangabaka_series
       where
-        year is not null
-        and (year < ${options.fromYear} or year > ${options.toYear})
+        COALESCE(year, EXTRACT(YEAR FROM start_date)::int) is not null
+        and (
+          COALESCE(year, EXTRACT(YEAR FROM start_date)::int) < ${options.fromYear}
+          or COALESCE(year, EXTRACT(YEAR FROM start_date)::int) > ${options.toYear}
+        )
         and ${mbClause} and ${malClause} and ${aniClause}
       returning id
     `) as unknown as { id: number }[];
@@ -235,16 +216,16 @@ async function main() {
   const url = args["url"] || DEFAULT_URL;
   const localPath = args["file"];
 
-  const keepOptions: KeepOptions = {
-    popularityCutoff:
-      Number(args["popularity-cutoff"] ?? DEFAULT_POPULARITY_CUTOFF) ||
-      DEFAULT_POPULARITY_CUTOFF,
-    ratingFloor:
-      Number(args["rating-floor"] ?? DEFAULT_RATING_FLOOR) || DEFAULT_RATING_FLOOR,
-    fromYear: Number(args["from-year"] ?? DEFAULT_FROM_YEAR) || DEFAULT_FROM_YEAR,
-    toYear: Number(args["to-year"] ?? DEFAULT_TO_YEAR) || DEFAULT_TO_YEAR,
-    includeFinished: args["include-finished"] === "true",
-  };
+  // Rolling catalogue window: keep titles published in the last N calendar
+  // years (10 by default, so 2017 onward in 2026). Titles that are already
+  // referenced by the app are always kept regardless of age.
+  const requestedYears = Number(args["years"] ?? DEFAULT_CATALOGUE_YEARS);
+  const catalogueYears =
+    Number.isInteger(requestedYears) && requestedYears >= 1 && requestedYears <= 50
+      ? requestedYears
+      : DEFAULT_CATALOGUE_YEARS;
+  const cutoffYear = new Date().getFullYear() - catalogueYears + 1;
+  console.log(`catalogue window: years=${catalogueYears} cutoffYear=${cutoffYear}`);
   const pruneLimit =
     Number(args["prune-limit"] ?? DEFAULT_CATALOGUE_LIMIT) || DEFAULT_CATALOGUE_LIMIT;
   const prune = args["no-prune"] !== "true";
@@ -308,7 +289,6 @@ async function main() {
   console.log(`member: ${MEMBER_NAME}`);
 
   const splitter = new JsonLineSplitter();
-  let now = Date.now();
   let scanned = 0;
   let kept = 0;
   let filtered = 0;
@@ -344,7 +324,7 @@ async function main() {
           continue;
         }
         scanned++;
-        if (shouldKeep(rec, refs, now, keepOptions)) {
+        if (shouldKeep(rec, refs, cutoffYear)) {
           // Enforce --limit exactly, including when it is not a multiple of BATCH_SIZE.
           if (limit && inserted + rows.length >= limit) break;
           rows.push(toMangabakaSeriesRow(rec));
@@ -379,8 +359,8 @@ async function main() {
       limit: pruneLimit,
       protect: refs,
       dryRun,
-      fromYear: keepOptions.fromYear,
-      toYear: keepOptions.toYear,
+      fromYear: cutoffYear,
+      toYear: new Date().getFullYear(),
     });
     console.log(
       `catalogue: before=${result.before} pruned=${result.deleted} after=${result.after}`,
