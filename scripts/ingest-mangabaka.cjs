@@ -12,10 +12,7 @@ const { toMangabakaSeriesRow, upsertMangabakaSeries } = require("@ambl/database"
 
 const DEFAULT_URL = "https://api.mangabaka.org/v1/database/series.jsonl.tar.gz";
 const MEMBER_NAME = "series.jsonl";
-const POPULARITY_CUTOFF = 20000;
-const RATING_FLOOR = 70;
-const RECENT_YEAR = new Date().getFullYear() - 1;
-const RECENT_MS = 90 * 24 * 60 * 60 * 1000;
+const DEFAULT_CATALOGUE_YEARS = 10;
 const BATCH_SIZE = 500;
 
 function loadEnvFile(file) {
@@ -76,25 +73,20 @@ function parseYear(d) {
   return m ? Number(m[1]) : null;
 }
 
-function shouldKeep(rec, refs, now) {
-  if ((rec.content_rating || "").toLowerCase() === "erotica") return false;
+function shouldKeep(rec, refs, cutoffYear) {
+  // Existing references always win over the catalogue age filter so older
+  // titles already used by the app remain available.
   const mb = num(rec.id);
   if (mb && refs.mb.has(mb)) return true;
   const mal = num(rec.source && rec.source.my_anime_list && rec.source.my_anime_list.id);
   if (mal && refs.mal.has(mal)) return true;
   const ani = num(rec.source && rec.source.anilist && rec.source.anilist.id);
   if (ani && refs.ani.has(ani)) return true;
+  if ((rec.content_rating || "").toLowerCase() === "erotica") return false;
   if (rec.state && rec.state !== "active") return false;
-  const pop = rec.popularity && rec.popularity.global && rec.popularity.global.current;
-  if (typeof pop === "number" && pop <= POPULARITY_CUTOFF) return true;
-  if (typeof rec.rating === "number" && rec.rating >= RATING_FLOOR) return true;
+  // Keep the active catalogue to the rolling last N calendar years.
   const y = num(rec.year) ?? parseYear(rec.published && rec.published.start_date);
-  if (typeof y === "number" && y >= RECENT_YEAR) return true;
-  if (rec.last_updated_at) {
-    const t = Date.parse(rec.last_updated_at);
-    if (!Number.isNaN(t) && now - t <= RECENT_MS) return true;
-  }
-  return false;
+  return typeof y === "number" && y >= cutoffYear;
 }
 
 async function main() {
@@ -103,6 +95,15 @@ async function main() {
   const limit = Number(args["limit"] || 0) || 0;
   const maxRecords = Number(args["max-records"] || 0) || 0;
   const localPath = args["file"];
+  // Rolling catalogue window: keep titles published in the last N calendar
+  // years (10 by default, so 2017 onward in 2026).
+  const requestedYears = Number(args["years"] || DEFAULT_CATALOGUE_YEARS);
+  const catalogueYears =
+    Number.isInteger(requestedYears) && requestedYears >= 1 && requestedYears <= 50
+      ? requestedYears
+      : DEFAULT_CATALOGUE_YEARS;
+  const cutoffYear = new Date().getFullYear() - catalogueYears + 1;
+  console.log(`catalogue window: years=${catalogueYears} cutoffYear=${cutoffYear}`);
 
   loadEnvFile("apps/web/.env");
   if (!process.env.DATABASE_URL) {
@@ -140,7 +141,6 @@ async function main() {
     filtered = 0,
     jsonErr = 0,
     inserted = 0;
-  const now = Date.now();
 
   ext.on("entry", (header, stream, next) => {
     if (header.name === MEMBER_NAME || header.name.endsWith(MEMBER_NAME)) {
@@ -154,7 +154,7 @@ async function main() {
             continue;
           }
           scanned++;
-          if (shouldKeep(rec, refs, now)) {
+          if (shouldKeep(rec, refs, cutoffYear)) {
             rows.push(toMangabakaSeriesRow(rec));
             kept++;
             if (rows.length >= BATCH_SIZE) {
