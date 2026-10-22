@@ -36,7 +36,6 @@ import { getDb } from "@/lib/db";
 import { StatusBadge } from "@/components/status-badge";
 import { TitleHero } from "@/components/title/title-hero";
 import {
-  Contributor,
   DetailItem,
   ProgressBar,
   QuickFacts,
@@ -54,7 +53,10 @@ import { ExternalLinksManager } from "@/components/external-links-manager";
 import { SyncRelationsButton } from "@/components/sync-relations-button";
 import { AddToLibraryButton } from "@/components/add-to-library-button";
 import { TitleActionBar } from "@/components/title-action-bar";
+import { CastSection } from "@/components/title/cast-section";
+import { CreditsGrid } from "@/components/title/credits-grid";
 import { Sparkline } from "@/components/sparkline";
+import { getExternalCast, orderStaffForDisplay } from "@/lib/external-cast";
 import { Badge } from "@/components/ui/badge";
 import {
   estimateRemainingTime,
@@ -181,6 +183,16 @@ export default async function TitlePage({
   const malId =
     extIdRows.find((r) => r.provider.startsWith("mal:"))?.externalId ??
     (title.malId != null ? String(title.malId) : null);
+
+  // Runtime-only cast enrichment (AniList → Jikan fallback). Never persisted:
+  // the result is cached by Next's fetch cache plus a small in-process memo.
+  const cast = await getExternalCast({
+    anilistId: anilistId && /^\d+$/.test(anilistId) ? Number(anilistId) : null,
+    malId: malId && /^\d+$/.test(malId) ? Number(malId) : null,
+    mediaType: title.mediaType === "ANIME" ? "ANIME" : "MANGA",
+  }).catch(() => null);
+  const castStaff = cast ? orderStaffForDisplay(cast.staff).slice(0, 12) : [];
+
   const mediaPath = title.mediaType === "ANIME" ? "anime" : "manga";
   const malUrl = malId ? `https://myanimelist.net/${mediaPath}/${malId}` : null;
   const anilistUrl = anilistId ? `https://anilist.co/${mediaPath}/${anilistId}` : null;
@@ -466,19 +478,23 @@ export default async function TitlePage({
         </dl>
       </TitleSection>
 
-      {hasContributors && (
+      {(hasContributors || castStaff.length > 0) && (
         <TitleSection title="Credits" icon={<Users className="h-4 w-4" />}>
-          <div className="grid gap-4 sm:grid-cols-3">
-            {authors.length > 0 && <Contributor label="Authors" values={authors} />}
-            {artists.length > 0 && <Contributor label="Artists" values={artists} />}
-            {publishers.length > 0 && (
-              <Contributor
-                label="Publishers"
-                values={publishers}
-                icon={<Building2 className="h-3.5 w-3.5" />}
-              />
-            )}
-          </div>
+          <CreditsGrid
+            authors={authors}
+            artists={artists}
+            publishers={publishers}
+            staff={castStaff}
+          />
+        </TitleSection>
+      )}
+
+      {cast && (cast.characters.length > 0 || cast.staff.length > 0) && (
+        <TitleSection title="Cast & crew" icon={<Users className="h-4 w-4" />}>
+          <CastSection
+            characters={cast.characters.slice(0, 12)}
+            staff={castStaff}
+          />
         </TitleSection>
       )}
 

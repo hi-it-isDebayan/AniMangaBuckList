@@ -26,7 +26,7 @@ export function Pagination({
         item === "…" ? (
           <span
             key={`gap-${i}`}
-            className="inline-flex h-8 min-w-8 items-center justify-center px-2 text-sm text-muted-foreground"
+            className="inline-flex h-9 min-w-9 items-center justify-center px-2 text-sm text-muted-foreground"
             aria-hidden="true"
           >
             …
@@ -89,9 +89,9 @@ function PageLink({
   children: React.ReactNode;
 }) {
   const className = cn(
-    "inline-flex h-8 min-w-8 items-center justify-center rounded-md px-2 text-sm transition-colors",
+    "inline-flex h-9 min-w-9 items-center justify-center rounded-xl px-2.5 text-sm font-medium transition-all",
     current
-      ? "bg-primary text-primary-foreground"
+      ? "bg-primary text-primary-foreground shadow-glow"
       : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
     disabled && "pointer-events-none opacity-40",
   );

@@ -115,22 +115,30 @@ export default async function ProfilePage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-5">
-      <Card>
-        <CardContent className="flex flex-col items-center gap-4 pt-8 text-center">
+      <Card className="noise-overlay relative overflow-hidden border-border/70 bg-card/80">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-brand-gradient opacity-[0.14]"
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-brand-gradient opacity-20 blur-3xl"
+        />
+        <CardContent className="relative flex flex-col items-center gap-4 pt-10 text-center">
           {profile?.avatarUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={profile.avatarUrl}
               alt={user.displayName || "Avatar"}
               referrerPolicy="no-referrer"
-              className="h-24 w-24 rounded-full object-cover shadow-lg ring-4 ring-emerald-500/70"
+              className="h-24 w-24 rounded-full object-cover shadow-xl ring-4 ring-background"
             />
           ) : (
-            <span className="flex h-24 w-24 items-center justify-center rounded-full bg-primary/10 text-3xl font-semibold text-primary shadow-lg ring-4 ring-emerald-500/70">
+            <span className="flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-primary/30 to-primary/5 text-3xl font-bold text-primary shadow-xl ring-4 ring-background">
               {initials}
             </span>
           )}
-          <h1 className="truncate text-2xl font-semibold tracking-tight">
+          <h1 className="truncate font-display text-2xl font-bold tracking-tight">
             {user.displayName || "Unnamed"}
           </h1>
           <p className="text-sm text-muted-foreground">{user.email}</p>
@@ -139,19 +147,19 @@ export default async function ProfilePage() {
             {providers.map((provider) => (
               <span
                 key={provider}
-                className="rounded-full border border-input px-3 py-1 text-xs text-muted-foreground"
+                className="rounded-full border border-border/70 bg-background/50 px-3 py-1 text-xs text-muted-foreground"
               >
                 {provider === "google" ? "Google" : "MyAnimeList"}
               </span>
             ))}
             {profile?.createdAt && (
-              <span className="flex items-center gap-1.5 rounded-full border border-input px-3 py-1 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1.5 rounded-full border border-border/70 bg-background/50 px-3 py-1 text-xs text-muted-foreground">
                 <CalendarDays className="h-3.5 w-3.5" />
                 Joined {formatDate(new Date(profile.createdAt))}
               </span>
             )}
             {lastVisited && (
-              <span className="flex items-center gap-1.5 rounded-full border border-input px-3 py-1 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1.5 rounded-full border border-border/70 bg-background/50 px-3 py-1 text-xs text-muted-foreground">
                 Last visited {relativeTime(new Date(lastVisited))}
               </span>
             )}
@@ -173,13 +181,13 @@ export default async function ProfilePage() {
           <div className="flex w-full max-w-sm flex-col gap-2 sm:flex-row">
             <Link
               href="/library"
-              className="inline-flex flex-1 items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
+              className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-glow transition-all hover:scale-[1.02] hover:bg-primary/90"
             >
               <Library className="h-4 w-4" /> My Library
             </Link>
             <Link
               href="/history"
-              className="inline-flex flex-1 items-center justify-center gap-2 rounded-md border border-input bg-transparent px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
+              className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-border/80 bg-background/50 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-accent"
             >
               <History className="h-4 w-4" /> History
             </Link>
@@ -187,9 +195,14 @@ export default async function ProfilePage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Library at a glance</CardTitle>
+      <Card className="border-border/70 bg-card/80">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2.5">
+            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/15">
+              <Library className="h-4 w-4" />
+            </span>
+            <span className="font-display font-bold tracking-tight">Library at a glance</span>
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -205,7 +218,7 @@ export default async function ProfilePage() {
               return (
                 <span
                   key={status}
-                  className="rounded-full border border-input px-3 py-1 text-xs font-medium"
+                  className="rounded-full border border-border/70 bg-background/50 px-3 py-1 text-xs font-medium"
                 >
                   {libraryStatusLabel(status)}
                   <span className="ml-1 opacity-60">{count}</span>
@@ -217,10 +230,13 @@ export default async function ProfilePage() {
       </Card>
 
       {recentSites.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <History className="h-4 w-4 text-primary" /> Sites visited
+        <Card className="border-border/70 bg-card/80">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2.5">
+              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/15">
+                <History className="h-4 w-4" />
+              </span>
+              <span className="font-display font-bold tracking-tight">Sites visited</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -252,7 +268,7 @@ function DeviceStatus({
   online: boolean;
 }) {
   return (
-    <div className="flex items-center justify-center gap-2 rounded-md border border-border px-3 py-2">
+    <div className="flex items-center justify-center gap-2 rounded-xl border border-border/70 bg-background/50 px-3 py-2">
       {icon}
       <div className="text-left">
         <p className="text-sm font-medium">{label}</p>
@@ -262,7 +278,9 @@ function DeviceStatus({
       </div>
       <span
         className={
-          online ? "h-2 w-2 rounded-full bg-emerald-500" : "h-2 w-2 rounded-full bg-muted-foreground/40"
+          online
+            ? "h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px] shadow-emerald-500/60"
+            : "h-2 w-2 rounded-full bg-muted-foreground/40"
         }
       />
     </div>
@@ -282,9 +300,11 @@ type LibraryStatusKey = (typeof STATUS_ORDER)[number];
 
 function Stat({ label, value }: { label: string; value: number | string }) {
   return (
-    <div className="rounded-md border border-border bg-muted/40 px-3 py-2">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="text-xl font-semibold">{value}</p>
+    <div className="rounded-xl border border-border/70 bg-background/50 px-3 py-2.5 transition-colors hover:border-primary/30">
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        {label}
+      </p>
+      <p className="mt-0.5 text-xl font-bold tabular-nums tracking-tight text-gradient">{value}</p>
     </div>
   );
 }

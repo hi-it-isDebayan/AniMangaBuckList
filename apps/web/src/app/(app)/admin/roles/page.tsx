@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import { ShieldCheck } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireUser } from "@/lib/auth";
 import { canAdminister, normalizeRole } from "@/lib/sources/roles";
 import { listAuditLog, listUsers } from "@/lib/sources/service";
 import { RoleControls } from "@/components/sources/role-controls";
+import { PageHeader } from "@/components/page-header";
 
 export const metadata: Metadata = { title: "Roles" };
 export const dynamic = "force-dynamic";
@@ -36,17 +38,15 @@ export default async function AdminRolesPage() {
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-6 px-3 py-6 sm:px-4">
-      <div>
-        <h1 className="text-2xl font-semibold">Roles</h1>
-        <p className="text-sm text-muted-foreground">
-          Only administrators can assign or revoke roles. You cannot change your own role, and the
-          last administrator cannot be removed.
-        </p>
-      </div>
+      <PageHeader
+        icon={ShieldCheck}
+        title="Roles"
+        subtitle="Only administrators can assign or revoke roles. You cannot change your own role, and the last administrator cannot be removed."
+      />
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Users</h2>
-        <ul className="divide-y divide-border rounded-lg border border-border">
+        <h2 className="font-display text-lg font-bold tracking-tight">Users</h2>
+        <ul className="divide-y divide-border/70 overflow-hidden rounded-2xl border border-border/70 bg-card/70">
           {users.map((account) => (
             <li
               key={account.id}
@@ -75,11 +75,11 @@ export default async function AdminRolesPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Audit log</h2>
+        <h2 className="font-display text-lg font-bold tracking-tight">Audit log</h2>
         {audit.length === 0 ? (
           <p className="text-sm text-muted-foreground">No moderation actions recorded yet.</p>
         ) : (
-          <ul className="divide-y divide-border rounded-lg border border-border">
+          <ul className="divide-y divide-border/70 overflow-hidden rounded-2xl border border-border/70 bg-card/70">
             {audit.map((entry) => (
               <li
                 key={entry.id}

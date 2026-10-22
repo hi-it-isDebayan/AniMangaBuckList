@@ -41,13 +41,19 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
   return (
     <Link
       href={item.href}
+      aria-current={active ? "page" : undefined}
       className={cn(
-        "flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-sm font-medium transition-all sm:px-3",
-        active ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+        "relative flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-sm font-medium transition-all duration-200 sm:px-3",
+        active
+          ? "bg-background text-foreground shadow-sm ring-1 ring-border/70"
+          : "text-muted-foreground hover:bg-background/60 hover:text-foreground",
       )}
     >
-      <Icon className="h-4 w-4" />
+      <Icon className={cn("h-4 w-4 transition-transform duration-200", active && "scale-110")} />
       <span className="hidden sm:inline">{item.label}</span>
+      {active && (
+        <span className="absolute -bottom-[9px] left-1/2 h-[3px] w-4 -translate-x-1/2 rounded-full bg-primary" />
+      )}
     </Link>
   );
 }
@@ -94,13 +100,15 @@ export function AppNav() {
           aria-haspopup="menu"
           aria-expanded={open}
           className={cn(
-            "flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-sm font-medium transition-all sm:px-3",
+            "relative flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-sm font-medium transition-all duration-200 sm:px-3",
             browseActive
-              ? "bg-card text-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground",
+              ? "bg-background text-foreground shadow-sm ring-1 ring-border/70"
+              : "text-muted-foreground hover:bg-background/60 hover:text-foreground",
           )}
         >
-          <ActiveIcon className="h-4 w-4" />
+          <ActiveIcon
+            className={cn("h-4 w-4 transition-transform duration-200", browseActive && "scale-110")}
+          />
           <span className="hidden sm:inline">{activeBrowse.label}</span>
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -112,17 +120,20 @@ export function AppNav() {
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-180")}
+            className={cn("h-3.5 w-3.5 transition-transform duration-200", open && "rotate-180")}
             aria-hidden="true"
           >
             <path d="m6 9 6 6 6-6" />
           </svg>
+          {browseActive && !open && (
+            <span className="absolute -bottom-[9px] left-1/2 h-[3px] w-4 -translate-x-1/2 rounded-full bg-primary" />
+          )}
         </button>
 
         {open && (
           <div
             role="menu"
-            className="absolute left-0 top-[calc(100%+0.5rem)] z-50 w-44 overflow-hidden rounded-xl border border-border bg-card p-1 shadow-lg"
+            className="scale-in absolute left-0 top-[calc(100%+0.5rem)] z-50 w-48 overflow-hidden rounded-xl border border-border/80 bg-card/95 p-1 shadow-xl shadow-black/10 backdrop-blur-md"
           >
             {BROWSE.map((item) => {
               const Icon = item.icon;

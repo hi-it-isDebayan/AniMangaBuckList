@@ -88,7 +88,9 @@ export function CatalogCard({
   );
 
   return (
-    <div className="card-hover group flex flex-col overflow-hidden rounded-xl border bg-card shadow-sm">
+    <div
+      className="card-hover group flex flex-col overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm shadow-black/[0.03]"
+    >
       <div className="relative aspect-[2/3] overflow-hidden bg-muted">
         {href ? (
           <Link href={href} className="block h-full w-full" aria-label={item.title}>
@@ -98,8 +100,14 @@ export function CatalogCard({
           cover
         )}
 
+        {/* bottom scrim so text over the cover always reads */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/55 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+        />
+
         {item.score != null && (
-          <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/65 px-2 py-0.5 text-[11px] font-semibold text-white backdrop-blur">
+          <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-[11px] font-semibold text-white ring-1 ring-white/15 backdrop-blur-md">
             <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
             {item.score.toFixed(1)}
           </span>
@@ -138,7 +146,7 @@ export function CatalogCard({
           {href ? (
             <Link
               href={href}
-              className="line-clamp-2 text-sm font-medium leading-snug transition-colors hover:text-primary"
+              className="line-clamp-2 text-sm font-semibold leading-snug tracking-tight transition-colors group-hover:text-primary"
               title={item.title}
             >
               {item.title}

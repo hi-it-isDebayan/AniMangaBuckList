@@ -17,10 +17,15 @@ export function TitleSection({
   className?: string;
 }) {
   return (
-    <Card className={className}>
-      <CardHeader className="flex-row items-center justify-between space-y-0">
-        <CardTitle className="flex items-center gap-2">
-          {icon} {title}
+    <Card className={cn("border-border/70 bg-card/80 shadow-sm shadow-black/[0.03]", className)}>
+      <CardHeader className="flex-row items-center justify-between space-y-0 pb-3">
+        <CardTitle className="flex items-center gap-2.5">
+          {icon && (
+            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/15">
+              {icon}
+            </span>
+          )}
+          <span className="font-display text-base font-bold tracking-tight">{title}</span>
         </CardTitle>
         {action}
       </CardHeader>
@@ -32,7 +37,9 @@ export function TitleSection({
 export function DetailItem({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="min-w-0">
-      <dt className="text-xs uppercase tracking-wide text-muted-foreground">{label}</dt>
+      <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        {label}
+      </dt>
       <dd className="mt-0.5 truncate text-sm">{children}</dd>
     </div>
   );
@@ -50,17 +57,19 @@ export function Stat({
   trend?: number | null;
 }) {
   return (
-    <div className="min-w-0">
-      <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="mt-1 flex items-baseline gap-1.5 text-lg font-semibold">
+    <div className="min-w-0 rounded-2xl border border-border/60 bg-background/50 px-3.5 py-3">
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        {label}
+      </p>
+      <p className="mt-1 flex items-baseline gap-1.5 text-lg font-bold tracking-tight">
         <span className="tabular-nums">{value}</span>
         {hint && <span className="text-xs font-normal text-muted-foreground">{hint}</span>}
         {typeof trend === "number" && trend !== 0 && (
           <span
             className={
               trend < 0
-                ? "text-xs font-medium text-success"
-                : "text-xs font-medium text-destructive"
+                ? "text-xs font-semibold text-success"
+                : "text-xs font-semibold text-destructive"
             }
             title={trend < 0 ? "Rank improved this month" : "Rank slipped this month"}
           >
@@ -93,10 +102,13 @@ export function ProgressBar({
       aria-valuemin={0}
       aria-valuemax={100}
       aria-label={label}
-      className={cn("h-2 w-full overflow-hidden rounded-full bg-muted", className)}
+      className={cn(
+        "h-2.5 w-full overflow-hidden rounded-full bg-muted ring-1 ring-inset ring-border/50",
+        className,
+      )}
     >
       <div
-        className="h-full rounded-full bg-primary transition-[width] duration-500"
+        className="h-full rounded-full bg-gradient-to-r from-primary via-primary/85 to-primary/60 transition-[width] duration-700 ease-out"
         style={{ width: `${clamped}%` }}
       />
     </div>
@@ -107,11 +119,18 @@ export function ProgressBar({
 export function QuickFacts({ facts }: { facts: { label: string; value: string }[] }) {
   if (facts.length === 0) return null;
   return (
-    <dl className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-3 lg:grid-cols-4">
+    <dl className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
       {facts.map((fact) => (
-        <div key={fact.label} className="min-w-0">
-          <dt className="text-xs uppercase tracking-wide text-muted-foreground">{fact.label}</dt>
-          <dd className="mt-0.5 truncate text-sm font-medium tabular-nums">{fact.value}</dd>
+        <div
+          key={fact.label}
+          className="min-w-0 rounded-2xl border border-border/60 bg-background/50 px-3.5 py-2.5 transition-colors hover:border-primary/25"
+        >
+          <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            {fact.label}
+          </dt>
+          <dd className="mt-0.5 truncate text-sm font-semibold tabular-nums tracking-tight">
+            {fact.value}
+          </dd>
         </div>
       ))}
     </dl>

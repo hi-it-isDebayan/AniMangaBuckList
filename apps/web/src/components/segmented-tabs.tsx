@@ -41,11 +41,11 @@ export function SegmentedTabs({
             role="tab"
             aria-selected={isActive}
             className={cn(
-              "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm font-medium transition-all",
+              "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm font-medium transition-all duration-200",
               isActive
                 ? variant === "brand"
-                  ? "bg-brand-gradient text-white shadow-sm"
-                  : "bg-card text-foreground shadow-sm"
+                  ? "bg-brand-gradient text-white shadow-glow"
+                  : "bg-background text-foreground shadow-sm ring-1 ring-border/70"
                 : "text-muted-foreground hover:bg-card/60 hover:text-foreground",
             )}
           >
