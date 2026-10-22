@@ -74,7 +74,7 @@ Requires Android 8+ (API 26).
 - **Database:** Neoon PostgreSQL via Drizzle ORM
 - **Metadata:** MyAnimeList (via Jikan by default, or the official MAL REST API)
 - **Auth:** email + password (bcrypt), DB-backed sessions, httpOnly cookies
-- **Deploy:** Render, monitored with UptimeRobot
+- **Deploy:** Render (free plan — see [Free-plan budget](#free-plan-budget))
 
 ## Getting started
 
@@ -114,7 +114,17 @@ Use the included [`render.yaml`](./render.yaml) blueprint, or manually create a 
 - **Start:** `npm run start`
 - **Health check:** `/api/health`
 
-Set `DATABASE_URL` to your Neon database and monitor `/api/health` with UptimeRobot.
+Set `DATABASE_URL` to your Neon database and point the health check at `/api/health`.
+
+### Free-plan budget
+
+Render's free plan provides **750 instance hours per calendar month per workspace**, shared by every free web service in that workspace. If the budget runs out, Render suspends **all** of them until the start of the next month.
+
+An instance only consumes hours while it is awake, and free instances sleep after 15 minutes without traffic. So:
+
+- Do **not** point an uptime monitor (UptimeRobot and friends) at a free service. A 5-minute ping keeps it awake around the clock, which alone is ~730 hours per month out of 750.
+- Keep at most **one** free web service awake, or accept a cold start (~30–60s) on the first request after idling.
+- The hour cap is removed on paid compute plans.
 
 ### Environment variables
 
