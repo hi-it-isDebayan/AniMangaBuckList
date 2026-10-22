@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
+import { MotionConfig } from "motion/react";
 
 type Theme = "light" | "dark";
 
@@ -24,7 +25,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   const value = { theme, toggle: () => setTheme((t) => (t === "dark" ? "light" : "dark")) };
 
-  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+  return (
+    <MotionConfig reducedMotion="user">
+      <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
+    </MotionConfig>
+  );
 }
 
 export function useTheme() {

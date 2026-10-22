@@ -1,16 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search, LayoutGrid, List } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import {
+  buildLibraryHref,
+  hasPendingSearchChange,
+  type LibraryFilterState,
+} from "@/lib/library-filters";
 
 export function LibraryToolbar({
   status,
   mediaType,
   tag,
+  genre,
   sort,
   query,
   view = "list",
@@ -18,6 +24,7 @@ export function LibraryToolbar({
   status: string;
   mediaType: string;
   tag: string;
+  genre: string;
   sort: string;
   query: string;
   view?: "grid" | "list";
@@ -25,32 +32,70 @@ export function LibraryToolbar({
   const router = useRouter();
   const [q, setQ] = useState(query);
   const [viewMode, setViewMode] = useState<"grid" | "list">(view);
+  const pendingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const apply = (patch: Partial<Record<string, string>>) => {
-    const params = new URLSearchParams();
-    if (status) params.set("status", status);
-    const nextQ = "q" in patch ? patch.q ?? "" : q;
-    const merged: Record<string, string> = {
-      q: nextQ.trim(),
-      type: "type" in patch ? (patch.type ?? "") : mediaType,
-      tag: "tag" in patch ? (patch.tag ?? "") : tag,
-      sort: "sort" in patch ? (patch.sort ?? "") : sort,
-      view: "view" in patch ? (patch.view ?? "") : viewMode,
-    };
-    for (const [key, value] of Object.entries(merged)) {
-      if (value) params.set(key, value);
+  // Mirror URL changes (back/forward, filter links) into the local controls
+  // instead of letting stale local state win.
+  useEffect(() => setQ(query), [query]);
+  useEffect(() => setViewMode(view), [view]);
+
+  const cancelPending = useCallback(() => {
+    if (pendingRef.current) {
+      clearTimeout(pendingRef.current);
+      pendingRef.current = null;
     }
-    router.replace(`/library?${params.toString()}`);
-  };
+  }, []);
+
+  const apply = useCallback(
+    (patch: LibraryFilterState) => {
+      // A filter change supersedes any search still waiting to be flushed.
+      // `q` is part of the base filters, so the search text is carried over
+      // rather than dropped, and the stale timer cannot undo this change.
+      cancelPending();
+      router.replace(
+        buildLibraryHref({ status, mediaType, tag, genre, sort, view: viewMode, q }, patch),
+      );
+    },
+    [router, cancelPending, status, mediaType, tag, genre, sort, viewMode, q],
+  );
 
   useEffect(() => {
-    const t = setTimeout(() => apply({ q }), 400);
-    return () => clearTimeout(t);
-  }, [q]);
+    // Only flush a real edit. Without this guard the debounce also runs on
+    // mount and after filter navigations, clobbering a newer selection.
+    if (!hasPendingSearchChange(q, query)) return;
+    pendingRef.current = setTimeout(() => {
+      pendingRef.current = null;
+      apply({ q: q.trim() });
+    }, 400);
+    return () => {
+      if (pendingRef.current) {
+        clearTimeout(pendingRef.current);
+        pendingRef.current = null;
+      }
+    };
+  }, [q, query, apply]);
+
+  // A press on a control that starts navigation or changes a filter must not be
+  // undone by an in-flight debounced search write. Drop the pending flush; the
+  // control's navigation re-renders the toolbar, which re-schedules the write
+  // against the new filter set.
+  useEffect(() => {
+    const onPointerDown = (e: PointerEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target || target.closest("[data-library-search]")) return;
+      if (!target.closest("a, button, select, [role='tab']")) return;
+      if (pendingRef.current) {
+        clearTimeout(pendingRef.current);
+        pendingRef.current = null;
+      }
+    };
+    document.addEventListener("pointerdown", onPointerDown, true);
+    return () => document.removeEventListener("pointerdown", onPointerDown, true);
+  }, []);
 
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-      <div className="relative flex-1">
+      <div className="relative flex-1" data-library-search>
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           className="pl-9"
@@ -62,7 +107,7 @@ export function LibraryToolbar({
       <Select
         value={mediaType}
         className="sm:w-40"
-        onChange={(e) => apply({ type: e.target.value })}
+        onChange={(e) => apply({ mediaType: e.target.value })}
         aria-label="Filter by media type"
       >
         <option value="">All types</option>

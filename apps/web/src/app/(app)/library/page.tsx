@@ -25,6 +25,7 @@ import { Pagination } from "@/components/pagination";
 import { SegmentedTabs } from "@/components/segmented-tabs";
 import { LIBRARY_STATUSES, GENRE_CHIP_COLORS, libraryStatusLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { buildLibraryHref } from "@/lib/library-filters";
 import { PageHeader } from "@/components/page-header";
 import { SearchProviderWrapper } from "@/components/search-provider-wrapper";
 
@@ -187,30 +188,10 @@ export default async function LibraryPage({
     })),
   ];
 
-  const buildHref = (p: number) => {
-    const params = new URLSearchParams();
-    if (status !== "ALL") params.set("status", status);
-    if (mediaType) params.set("type", mediaType);
-    if (tag) params.set("tag", tag);
-    if (genre) params.set("genre", genre);
-    if (sort !== "updated") params.set("sort", sort);
-    if (viewMode !== "list") params.set("view", viewMode);
-    if (q) params.set("q", q);
-    params.set("page", String(p));
-    return `/library?${params.toString()}`;
-  };
-
-  const buildTypeHref = (type: string) => {
-    const params = new URLSearchParams();
-    if (status !== "ALL") params.set("status", status);
-    if (type) params.set("type", type);
-    if (tag) params.set("tag", tag);
-    if (genre) params.set("genre", genre);
-    if (sort !== "updated") params.set("sort", sort);
-    if (viewMode !== "list") params.set("view", viewMode);
-    if (q) params.set("q", q);
-    return `/library?${params.toString()}`;
-  };
+  const filters = { status, mediaType, tag, genre, sort, view: viewMode, q };
+  const buildHref = (p: number) => buildLibraryHref(filters, { page: p });
+  const buildTypeHref = (type: string) => buildLibraryHref(filters, { mediaType: type });
+  const buildStatusHref = (key: string) => buildLibraryHref(filters, { status: key });
 
   const MEDIA_TABS: { key: string; label: string }[] = [
     { key: "", label: "All" },
@@ -251,6 +232,7 @@ export default async function LibraryPage({
           status={status}
           mediaType={mediaType}
           tag={tag}
+          genre={genre}
           sort={sort}
           query={q}
           view={viewMode}
@@ -287,7 +269,7 @@ export default async function LibraryPage({
             key: tab.key,
             label: tab.label,
             count: tab.count,
-            href: tab.key === "ALL" ? "/library" : buildHref(1).replace(/[?&]page=\d+/, ""),
+            href: buildStatusHref(tab.key),
           }))}
           active={status}
         />

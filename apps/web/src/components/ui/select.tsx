@@ -8,7 +8,7 @@ export const Select = React.forwardRef<
   <select
     ref={ref}
     className={cn(
-      "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:cursor-not-allowed disabled:opacity-50",
+      "flex h-10 w-full rounded-xl border border-border/70 bg-background/60 px-3 py-1 text-sm shadow-sm transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:cursor-not-allowed disabled:opacity-50",
       className,
     )}
     {...props}
@@ -17,9 +17,3 @@ export const Select = React.forwardRef<
   </select>
 ));
 Select.displayName = "Select";
-
-export function Skeleton({ className }: { className?: string }) {
-  return (
-    <div className={cn("animate-pulse rounded-md bg-muted", className)} />
-  );
-}
