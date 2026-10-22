@@ -53,10 +53,10 @@ export function LibraryItemRow({
   return (
     <div
       className={cn(
-        "card-hover group relative overflow-hidden rounded-xl border bg-card shadow-sm",
+        "card-hover group relative overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm shadow-black/[0.03]",
         isGrid
           ? "flex flex-col items-center gap-3 p-3"
-          : "flex items-center gap-3 overflow-hidden rounded-xl border bg-card p-2.5 pr-3 shadow-sm sm:gap-4 sm:p-3"
+          : "flex items-center gap-3 overflow-hidden rounded-2xl border border-border/70 bg-card p-2.5 pr-3 shadow-sm shadow-black/[0.03] sm:gap-4 sm:p-3"
       )}
     >
       <span className={cn("absolute inset-y-0 left-0 w-1", statusAccentClass(item.status))} />
@@ -64,8 +64,8 @@ export function LibraryItemRow({
       <Link
         href={"/title/" + item.titleId}
         className={cn(
-          "relative shrink-0 overflow-hidden rounded-lg bg-muted ring-1 ring-border",
-          isGrid ? "w-full aspect-square" : "shrink-0 overflow-hidden rounded-lg"
+          "cover-zoom relative shrink-0 overflow-hidden rounded-xl bg-muted ring-1 ring-border/60 transition-shadow group-hover:ring-primary/30",
+          isGrid ? "w-full aspect-square" : "shrink-0 overflow-hidden rounded-xl"
         )}
       >
         {item.coverUrl ? (

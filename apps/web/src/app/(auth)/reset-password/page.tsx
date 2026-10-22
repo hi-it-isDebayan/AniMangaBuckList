@@ -14,10 +14,12 @@ export default async function ResetPasswordPage({
   const validFormat = typeof token === "string" && token.length >= 20 && token.length <= 256;
 
   return (
-    <Card>
-      <CardContent className="pt-5">
+    <Card className="noise-overlay border-border/70 bg-card/85 shadow-xl shadow-black/20 backdrop-blur-md">
+      <CardContent className="pt-6">
         <div className="mb-6 space-y-1">
-          <h1 className="text-xl font-semibold tracking-tight">Choose a new password</h1>
+          <h1 className="font-display text-xl font-bold tracking-tight">
+            Choose a new password
+          </h1>
           <p className="text-sm text-muted-foreground">
             {validFormat
               ? "Set a new password to sign in with. All your other devices will be signed out."

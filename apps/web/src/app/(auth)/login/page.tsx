@@ -32,16 +32,16 @@ export default async function LoginPage({
   const { error } = await searchParams;
 
   return (
-    <Card>
-      <CardContent className="pt-5">
+    <Card className="noise-overlay border-border/70 bg-card/85 shadow-xl shadow-black/20 backdrop-blur-md">
+      <CardContent className="pt-6">
         <div className="mb-6 space-y-1">
-          <h1 className="text-xl font-semibold tracking-tight">AniMangaBuckList</h1>
+          <h1 className="font-display text-xl font-bold tracking-tight">Welcome back</h1>
           <p className="text-sm text-muted-foreground">
             Sign in to continue your reading and watching.
           </p>
         </div>
         {error && (
-          <p className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <p className="mb-4 rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
             {oauthErrorLabel(error)}
           </p>
         )}

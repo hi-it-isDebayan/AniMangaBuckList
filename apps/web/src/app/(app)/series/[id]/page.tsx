@@ -4,7 +4,6 @@ import { notFound } from "next/navigation";
 import { and, asc, eq } from "drizzle-orm";
 import {
   BookOpenText,
-  Building2,
   Layers,
   Star,
   TrendingUp,
@@ -22,8 +21,10 @@ import { StatusBadge } from "@/components/status-badge";
 import { Sparkline } from "@/components/sparkline";
 import { TitleHero } from "@/components/title/title-hero";
 import { findTitleIdByExternalId } from "@/lib/external-ids";
+import { getExternalCast, orderStaffForDisplay } from "@/lib/external-cast";
+import { CastSection } from "@/components/title/cast-section";
+import { CreditsGrid } from "@/components/title/credits-grid";
 import {
-  Contributor,
   DetailItem,
   QuickFacts,
   Stat,
@@ -239,6 +240,15 @@ export default async function SeriesPage({
     .filter((value): value is number => value != null);
   const rank1mo = series.popularityHistory.find((point) => point.label === "1mo")?.value ?? null;
   const rankDelta = rank != null && rank1mo != null ? rank - rank1mo : null;
+
+  // Runtime-only cast enrichment (AniList → Jikan fallback). Nothing is stored
+  // in Neon; results live in Next's fetch cache and an in-process memo.
+  const cast = await getExternalCast({
+    anilistId: series.anilistId,
+    malId: series.malId,
+    mediaType: series.mediaType === "ANIME" ? "ANIME" : "MANGA",
+  }).catch(() => null);
+  const castStaff = cast ? orderStaffForDisplay(cast.staff).slice(0, 12) : [];
 
   // Oldest-first rank snapshots for the insight summary (1y → now).
   const rankSummary = summariseRankHistory(
@@ -476,23 +486,21 @@ export default async function SeriesPage({
 
       {(series.authors.length > 0 ||
         series.artists.length > 0 ||
-        series.publishers.length > 0) && (
+        series.publishers.length > 0 ||
+        castStaff.length > 0) && (
         <TitleSection title="Credits" icon={<Users className="h-4 w-4" />}>
-          <div className="grid gap-4 sm:grid-cols-3">
-            {series.authors.length > 0 && (
-              <Contributor label="Authors" values={series.authors} />
-            )}
-            {series.artists.length > 0 && (
-              <Contributor label="Artists" values={series.artists} />
-            )}
-            {series.publishers.length > 0 && (
-              <Contributor
-                label="Publishers"
-                values={series.publishers.map((p) => p.name).filter(Boolean)}
-                icon={<Building2 className="h-3.5 w-3.5" />}
-              />
-            )}
-          </div>
+          <CreditsGrid
+            authors={series.authors}
+            artists={series.artists}
+            publishers={series.publishers.map((p) => p.name).filter(Boolean)}
+            staff={castStaff}
+          />
+        </TitleSection>
+      )}
+
+      {cast && (cast.characters.length > 0 || cast.staff.length > 0) && (
+        <TitleSection title="Cast & crew" icon={<Users className="h-4 w-4" />}>
+          <CastSection characters={cast.characters.slice(0, 12)} staff={castStaff} />
         </TitleSection>
       )}
 

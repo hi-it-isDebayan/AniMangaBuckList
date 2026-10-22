@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Activity } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireUser } from "@/lib/auth";
 import { listRecentChecks, listRecentReports, listSources } from "@/lib/sources/service";
@@ -6,6 +7,7 @@ import { canModerate, normalizeRole } from "@/lib/sources/roles";
 import { ExtractorBadge, StatusBadge } from "@/components/sources/status-badge";
 import { ModerateControls } from "@/components/sources/moderate-controls";
 import { ResolveReportButton } from "@/components/sources/resolve-report-button";
+import { PageHeader } from "@/components/page-header";
 
 export const metadata: Metadata = { title: "Source health & reports" };
 export const dynamic = "force-dynamic";
@@ -37,21 +39,24 @@ export default async function SourceHealthPage() {
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-6 px-3 py-6 sm:px-4">
-      <div>
-        <h1 className="text-2xl font-semibold">Health &amp; reports</h1>
-        <p className="text-sm text-muted-foreground">
-          Reachability and extraction are checked separately. You are signed in as{" "}
-          <span className="font-medium text-foreground">{role}</span>.
-        </p>
-      </div>
+      <PageHeader
+        icon={Activity}
+        title="Health & reports"
+        subtitle={
+          <>
+            Reachability and extraction are checked separately. You are signed in as{" "}
+            <span className="font-medium text-foreground">{role}</span>.
+          </>
+        }
+      />
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Source health</h2>
+        <h2 className="font-display text-lg font-bold tracking-tight">Source health</h2>
         {healthSorted.length === 0 ? (
           <p className="text-sm text-muted-foreground">No sources registered yet.</p>
         ) : (
           healthSorted.map((source) => (
-            <div key={source.id} className="rounded-lg border border-border bg-card p-4">
+            <div key={source.id} className="card-hover rounded-2xl border border-border/70 bg-card/80 p-4 shadow-sm shadow-black/[0.03]">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <p className="font-medium">
@@ -98,11 +103,11 @@ export default async function SourceHealthPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Recent checks</h2>
+        <h2 className="font-display text-lg font-bold tracking-tight">Recent checks</h2>
         {checks.length === 0 ? (
           <p className="text-sm text-muted-foreground">No checks recorded yet.</p>
         ) : (
-          <ul className="divide-y divide-border rounded-lg border border-border">
+          <ul className="divide-y divide-border/70 overflow-hidden rounded-2xl border border-border/70 bg-card/70">
             {checks.map((check) => (
               <li key={check.id} className="flex flex-wrap items-center justify-between gap-2 p-3 text-sm">
                 <span className="font-medium">{check.name}</span>
@@ -119,11 +124,11 @@ export default async function SourceHealthPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Community reports</h2>
+        <h2 className="font-display text-lg font-bold tracking-tight">Community reports</h2>
         {reports.length === 0 ? (
           <p className="text-sm text-muted-foreground">No reports yet.</p>
         ) : (
-          <ul className="divide-y divide-border rounded-lg border border-border">
+          <ul className="divide-y divide-border/70 overflow-hidden rounded-2xl border border-border/70 bg-card/70">
             {reports.map((report) => (
               <li key={report.id} className="flex flex-wrap items-center justify-between gap-3 p-3 text-sm">
                 <div>

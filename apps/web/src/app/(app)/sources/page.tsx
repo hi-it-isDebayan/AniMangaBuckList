@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Globe } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input, Label } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -7,6 +8,7 @@ import { listLinkedSources, listSources } from "@/lib/sources/service";
 import { loadSourceUsage } from "@/lib/sources/usage";
 import { AddSourcePanel } from "@/components/sources/add-source-panel";
 import { SourceCard } from "@/components/sources/source-card";
+import { PageHeader } from "@/components/page-header";
 
 export const metadata: Metadata = { title: "Discover sources" };
 export const dynamic = "force-dynamic";
@@ -36,15 +38,12 @@ export default async function SourcesPage({
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-6 px-3 py-6 sm:px-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">Discover sources</h1>
-          <p className="text-sm text-muted-foreground">
-            Community source directory. Register a site once; everyone links to the same entry.
-          </p>
-        </div>
-        <AddSourcePanel />
-      </div>
+      <PageHeader
+        icon={Globe}
+        title="Discover sources"
+        subtitle="Community source directory. Register a site once; everyone links to the same entry."
+        actions={<AddSourcePanel />}
+      />
 
       <Card>
         <CardHeader>

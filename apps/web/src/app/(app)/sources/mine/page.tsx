@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Link2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { requireUser } from "@/lib/auth";
 import { listLinkedSources } from "@/lib/sources/service";
 import { SourceRowActions } from "@/components/sources/source-row-actions";
 import { StatusBadge } from "@/components/sources/status-badge";
+import { PageHeader } from "@/components/page-header";
 
 export const metadata: Metadata = { title: "My linked sources" };
 export const dynamic = "force-dynamic";
@@ -19,12 +21,11 @@ export default async function MySourcesPage() {
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-6 px-3 py-6 sm:px-4">
-      <div>
-        <h1 className="text-2xl font-semibold">My linked sources</h1>
-        <p className="text-sm text-muted-foreground">
-          Sources you follow. Test one any time; a single failure never marks it broken.
-        </p>
-      </div>
+      <PageHeader
+        icon={Link2}
+        title="My linked sources"
+        subtitle="Sources you follow. Test one any time; a single failure never marks it broken."
+      />
 
       {links.length === 0 ? (
         <Card>
@@ -39,7 +40,7 @@ export default async function MySourcesPage() {
       ) : (
         <div className="space-y-3">
           {links.map((link) => (
-            <div key={link.linkId} className="rounded-lg border border-border bg-card p-4">
+            <div key={link.linkId} className="card-hover rounded-2xl border border-border/70 bg-card/80 p-4 shadow-sm shadow-black/[0.03]">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="font-medium">{link.name}</p>

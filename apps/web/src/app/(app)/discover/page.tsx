@@ -14,6 +14,8 @@ import { discoverItemToCatalogItem } from "@/lib/catalog";
 import { EmptyState } from "@/components/empty-state";
 import { Pagination } from "@/components/pagination";
 import { SegmentedTabs } from "@/components/segmented-tabs";
+import { PageHeader } from "@/components/page-header";
+import { RevealStagger } from "@/components/reveal";
 import { SearchProviderWrapper } from "@/components/search-provider-wrapper";
 
 export const metadata: Metadata = { title: "Discover" };
@@ -70,19 +72,18 @@ export default async function DiscoverPage({
   return (
     <SearchProviderWrapper defaultType="MANGA" defaultSource="mangabaka">
       <div className="space-y-5">
-        <div className="flex items-end justify-between gap-3">
-          <div>
-            <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-              <Compass className="h-6 w-6 text-primary" /> Discover
-            </h1>
-            <p className="mt-0.5 text-sm text-muted-foreground">
+        <PageHeader
+          icon={Compass}
+          title="Discover"
+          subtitle={
+            <>
               What&apos;s {DISCOVER_SORTS.find((s) => s.key === sort)?.label.toLowerCase()} on
               MangaBaka
               {year ? ` from ${year}` : ""}
               {result.count > 0 ? ` · ${result.count.toLocaleString()} titles` : ""}
-            </p>
-          </div>
-        </div>
+            </>
+          }
+        />
 
         <div className="flex flex-col gap-2.5">
           <SegmentedTabs
@@ -130,12 +131,12 @@ export default async function DiscoverPage({
             description="No titles matched this combination yet. Try another format, year, or sort."
           />
         ) : (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+          <RevealStagger className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
             {result.items.map((item) => {
               const catalogItem = discoverItemToCatalogItem(item, { source: "local" });
               return <CatalogCard key={catalogItem.key} item={catalogItem} />;
             })}
-          </div>
+          </RevealStagger>
         )}
 
         <Pagination

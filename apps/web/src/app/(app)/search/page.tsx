@@ -13,6 +13,7 @@ import { CatalogCard } from "@/components/catalog-card";
 import { EmptyState } from "@/components/empty-state";
 import { Pagination } from "@/components/pagination";
 import { SegmentedTabs } from "@/components/segmented-tabs";
+import { PageHeader } from "@/components/page-header";
 
 export const metadata: Metadata = { title: "Search" };
 export const dynamic = "force-dynamic";
@@ -74,12 +75,11 @@ export default async function SearchPage({
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-            <Compass className="h-6 w-6 text-primary" /> Search
-          </h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">
+      <PageHeader
+        icon={Compass}
+        title="Search"
+        subtitle={
+          <>
             {q
               ? `Results for “${q}”`
               : "Search the local catalogue; anything missing is fetched from MangaBaka."}
@@ -87,9 +87,9 @@ export default async function SearchPage({
               ? ` · ${result.localCount.toLocaleString()} in the catalogue`
               : ""}
             {q && result.remoteCount > 0 ? ` · ${result.remoteCount} from MangaBaka` : ""}
-          </p>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       <form action="/search" method="get" className="flex items-center gap-2">
         <div className="relative flex-1">
@@ -99,7 +99,7 @@ export default async function SearchPage({
             name="q"
             defaultValue={q}
             placeholder="Search manga, manhwa, manhua, novels…"
-            className="h-11 w-full rounded-xl border border-input bg-card pl-9 pr-3 text-sm shadow-sm outline-none transition-colors focus:ring-2 focus:ring-ring/50"
+            className="h-12 w-full rounded-2xl border border-border/70 bg-card pl-9 pr-3 text-sm shadow-sm outline-none transition-shadow focus:ring-2 focus:ring-ring/40"
           />
         </div>
         {format !== "ALL" && <input type="hidden" name="format" value={format} />}
@@ -107,7 +107,7 @@ export default async function SearchPage({
         {year != null && <input type="hidden" name="year" value={String(year)} />}
         <button
           type="submit"
-          className="inline-flex h-11 items-center justify-center rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          className="inline-flex h-12 items-center justify-center rounded-2xl bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-glow transition-all hover:scale-[1.03] hover:bg-primary/90"
         >
           Search
         </button>

@@ -7,6 +7,7 @@ import { CommandSearch } from "@/components/command-search";
 import { MetadataRefresher } from "@/components/metadata-refresher";
 import { SearchLayout } from "@/components/search-layout";
 import { AppNav } from "@/components/app-nav";
+import { ScrollProgress } from "@/components/scroll-progress";
 import { Button } from "@/components/ui/button";
 
 export const dynamic = "force-dynamic";
@@ -26,14 +27,15 @@ export default async function AppLayout({
   return (
     <SearchLayout>
       <div className="flex min-h-dvh flex-col">
-        <header className="sticky top-0 z-40 border-b border-transparent bg-background/75 backdrop-blur-md supports-[backdrop-filter]:bg-background/75">
-          <div className="mx-auto flex h-14 w-full max-w-6xl items-center gap-2 px-3 sm:gap-3 sm:px-4">
-            <Link href="/" className="flex items-center gap-2.5 font-semibold">
-              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-gradient text-white shadow-glow">
-                <BookOpenText className="h-4.5 w-4.5" />
+        <header className="header-accent sticky top-0 z-40 border-b border-border/60 bg-background/70 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60">
+          <div className="mx-auto flex h-16 w-full max-w-6xl items-center gap-2 px-3 sm:gap-3 sm:px-4">
+            <Link href="/" className="group flex items-center gap-2.5">
+              <span className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-brand-gradient text-white shadow-glow transition-transform duration-300 group-hover:scale-105">
+                <BookOpenText className="h-4.5 w-4.5 relative z-10" />
+                <span className="absolute inset-0 bg-white/20 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
               </span>
-              <span className="hidden sm:inline">
-                AniManga<span className="text-gradient">BuckList</span>
+              <span className="hidden text-[15px] font-bold tracking-tight sm:inline">
+                AniManga<span className="text-gradient-animated">BuckList</span>
               </span>
             </Link>
             <AppNav />
@@ -41,7 +43,7 @@ export default async function AppLayout({
               <ThemeToggle />
               <Link
                 href="/profile"
-                className="flex items-center gap-2 rounded-lg px-1.5 py-1 hover:bg-accent sm:px-2"
+                className="flex items-center gap-2 rounded-full px-1.5 py-1 transition-colors hover:bg-accent sm:px-2"
               >
                 {user.avatarUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -49,10 +51,10 @@ export default async function AppLayout({
                     src={user.avatarUrl}
                     alt=""
                     referrerPolicy="no-referrer"
-                    className="h-7 w-7 rounded-full object-cover ring-1 ring-border"
+                    className="h-8 w-8 rounded-full object-cover ring-2 ring-border transition-shadow hover:ring-primary/50"
                   />
                 ) : (
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary ring-1 ring-border">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-primary/20 to-primary/5 text-xs font-bold text-primary ring-2 ring-border transition-shadow hover:ring-primary/50">
                     {(user.displayName || user.email || "?").slice(0, 1).toUpperCase()}
                   </span>
                 )}
@@ -74,8 +76,9 @@ export default async function AppLayout({
               </form>
             </div>
           </div>
+          <ScrollProgress />
         </header>
-        <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-6 pt-6">{children}</main>
+        <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-10 pt-7 sm:pt-8">{children}</main>
         <CommandSearch />
         <MetadataRefresher />
       </div>

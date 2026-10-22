@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Fingerprint, MonitorSmartphone, KeyRound } from "lucide-react";
+import { Fingerprint, MonitorSmartphone, KeyRound, Settings as SettingsIcon } from "lucide-react";
 import { requireUser, listSessions, getCurrentSessionId } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { eq } from "drizzle-orm";
@@ -11,6 +11,7 @@ import { ConnectedAccounts } from "@/components/connected-accounts";
 import { countMangabakaEntries, mangabakaLastSynced } from "@/lib/provider-sync";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ApiKeysList } from "@/components/api-keys-list";
+import { PageHeader } from "@/components/page-header";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Settings" };
@@ -64,16 +65,20 @@ export default async function SettingsPage({
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
-      <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
+      <PageHeader
+        icon={SettingsIcon}
+        title="Settings"
+        subtitle="Profile, security, connected accounts and API keys."
+      />
 
       {error && (
-        <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {error}
         </div>
       )}
 
       {!user.emailVerifiedAt && (
-        <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3">
+        <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-3">
           <p className="flex items-center gap-2 text-sm text-destructive">
             <span className="h-4 w-4">⚠️</span>
             <span>Verify your email to use password recovery and keep recovery emails secure.</span>
@@ -81,8 +86,8 @@ export default async function SettingsPage({
         </div>
       )}
 
-      <div className="rounded-lg border bg-card p-4 space-y-4">
-        <h2 className="text-lg font-semibold">Profile</h2>
+      <div className="space-y-4 rounded-2xl border border-border/70 bg-card/80 p-4 shadow-sm shadow-black/[0.03]">
+        <h2 className="font-display text-base font-bold tracking-tight">Profile</h2>
         <SettingsForm
           email={user.email}
           displayName={user.displayName}
@@ -91,9 +96,11 @@ export default async function SettingsPage({
         />
       </div>
 
-      <div className="rounded-lg border bg-card p-4 space-y-4">
-        <h2 className="flex items-center gap-2 text-lg font-semibold">
-          <Fingerprint className="h-4 w-4 text-primary" />
+      <div className="space-y-4 rounded-2xl border border-border/70 bg-card/80 p-4 shadow-sm shadow-black/[0.03]">
+        <h2 className="flex items-center gap-2.5 font-display text-base font-bold tracking-tight">
+          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/15">
+            <Fingerprint className="h-4 w-4" />
+          </span>
           Passkeys
         </h2>
         <PasskeyManager
@@ -105,28 +112,30 @@ export default async function SettingsPage({
         />
       </div>
 
-      <div className="rounded-lg border bg-card p-4 space-y-4">
-        <h2 className="flex items-center gap-2 text-lg font-semibold">
-          <MonitorSmartphone className="h-4 w-4 text-primary" />
-          Devices & Sessions
+      <div className="space-y-4 rounded-2xl border border-border/70 bg-card/80 p-4 shadow-sm shadow-black/[0.03]">
+        <h2 className="flex items-center gap-2.5 font-display text-base font-bold tracking-tight">
+          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/15">
+            <MonitorSmartphone className="h-4 w-4" />
+          </span>
+          Devices &amp; sessions
         </h2>
         <div className="space-y-2">
           {sessionRows.map((s) => (
             <div
               key={s.id}
-              className="flex items-center justify-between p-2 rounded-lg border"
+              className="flex items-center justify-between rounded-xl border border-border/70 bg-background/50 p-2.5"
             >
               <div>
-                <p className="font-medium">{s.deviceLabel ?? "Unknown device"}</p>
+                <p className="text-sm font-medium">{s.deviceLabel ?? "Unknown device"}</p>
                 <p className="text-xs text-muted-foreground">
                   {s.ipAddress ?? "Unknown IP"} · {new Date(s.createdAt).toLocaleString()}
                 </p>
               </div>
               <span
                 className={cn(
-                  "text-xs px-2 py-0.5 rounded-full",
+                  "rounded-full px-2.5 py-0.5 text-xs font-medium",
                   s.id === currentSessionId
-                    ? "bg-primary/10 text-primary"
+                    ? "bg-primary/10 text-primary ring-1 ring-primary/20"
                     : "bg-muted text-muted-foreground",
                 )}
               >
@@ -137,10 +146,12 @@ export default async function SettingsPage({
         </div>
       </div>
 
-      <div className="rounded-lg border bg-card p-4 space-y-4">
-        <h2 className="flex items-center gap-2 text-lg font-semibold">
-          <MonitorSmartphone className="h-4 w-4 text-primary" />
-          Connected Accounts
+      <div className="space-y-4 rounded-2xl border border-border/70 bg-card/80 p-4 shadow-sm shadow-black/[0.03]">
+        <h2 className="flex items-center gap-2.5 font-display text-base font-bold tracking-tight">
+          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/15">
+            <MonitorSmartphone className="h-4 w-4" />
+          </span>
+          Connected accounts
         </h2>
         <ConnectedAccounts
           linkedGoogle={linkedProviders.has("google")}
@@ -151,10 +162,12 @@ export default async function SettingsPage({
         />
       </div>
 
-      <div className="rounded-lg border bg-card p-4 space-y-4">
-        <h2 className="flex items-center gap-2 text-lg font-semibold">
-          <KeyRound className="h-4 w-4 text-primary" />
-          API Keys
+      <div className="space-y-4 rounded-2xl border border-border/70 bg-card/80 p-4 shadow-sm shadow-black/[0.03]">
+        <h2 className="flex items-center gap-2.5 font-display text-base font-bold tracking-tight">
+          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/15">
+            <KeyRound className="h-4 w-4" />
+          </span>
+          API keys
         </h2>
         {apiKeys.length === 0 ? (
           <p className="text-sm text-muted-foreground">No API keys created yet.</p>

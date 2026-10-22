@@ -93,11 +93,11 @@ export function TitleHero({
         </Link>
       )}
 
-      <header className="relative overflow-hidden rounded-2xl border bg-card/60 shadow-sm">
+      <header className="noise-overlay relative overflow-hidden rounded-3xl border border-border/70 bg-card/60 shadow-sm shadow-black/[0.04]">
         {coverUrl && (
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-0 scale-110 opacity-25 blur-3xl"
+            className="pointer-events-none absolute inset-0 scale-125 opacity-30 blur-3xl"
             style={{
               backgroundImage: `url(${coverUrl})`,
               backgroundSize: "cover",
@@ -105,9 +105,13 @@ export function TitleHero({
             }}
           />
         )}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 bg-gradient-to-br from-background/70 via-background/40 to-background/80"
+        />
 
-        <div className="relative flex flex-col gap-5 p-4 sm:flex-row sm:gap-6 sm:p-6">
-          <div className="shrink-0 self-center sm:self-start">
+        <div className="relative flex flex-col gap-5 p-4 sm:flex-row sm:gap-7 sm:p-7">
+          <div className="group shrink-0 self-center sm:self-start">
             {coverUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -115,10 +119,10 @@ export function TitleHero({
                 alt={title}
                 loading="eager"
                 referrerPolicy="no-referrer"
-                className="h-56 w-40 rounded-xl border shadow-lg transition-transform duration-300 hover:scale-[1.02] sm:h-72 sm:w-52"
+                className="h-56 w-40 rounded-2xl border border-border/70 object-cover shadow-2xl shadow-black/25 transition-transform duration-500 group-hover:scale-[1.03] group-hover:rotate-1 sm:h-80 sm:w-56"
               />
             ) : (
-              <span className="cover-fallback flex h-56 w-40 items-center justify-center rounded-xl border text-muted-foreground sm:h-72 sm:w-52">
+              <span className="cover-fallback flex h-56 w-40 items-center justify-center rounded-2xl border border-border/70 text-muted-foreground shadow-2xl sm:h-80 sm:w-56">
                 <BookOpenText className="h-10 w-10" />
               </span>
             )}
@@ -134,48 +138,51 @@ export function TitleHero({
               {libraryStatus}
             </div>
 
-            <h1 className="mt-3 text-2xl font-semibold tracking-tight text-gradient sm:text-3xl">
+            <h1 className="mt-3 font-display text-3xl font-bold leading-[1.1] tracking-tight sm:text-4xl">
               {title}
             </h1>
             {englishTitle && englishTitle !== title && (
-              <p className="text-muted-foreground">{englishTitle}</p>
+              <p className="mt-1 text-base text-muted-foreground">{englishTitle}</p>
             )}
             {(nativeTitle || japaneseTitle) && (
-              <p className="text-sm text-muted-foreground">
+              <p className="mt-0.5 text-sm text-muted-foreground/80">
                 {[nativeTitle, japaneseTitle].filter(Boolean).join(" · ")}
               </p>
             )}
 
-            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm">
+            <div className="mt-4 flex flex-wrap items-center gap-2">
               {score != null && (
-                <span className="inline-flex items-center gap-1.5 font-medium">
-                  <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+                <span className="inline-flex items-center gap-1.5 rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-sm font-bold text-amber-600 dark:text-amber-400">
+                  <Star className="h-4 w-4 fill-current" />
                   {score.toFixed(1)}
-                  <span className="font-normal text-muted-foreground">/ 10</span>
+                  <span className="text-xs font-normal opacity-70">/ 10</span>
                 </span>
               )}
               {rank != null && (
-                <span className="inline-flex items-center gap-1.5 text-muted-foreground">
-                  <TrendingUp className="h-4 w-4" /> #{rank.toLocaleString()} global
+                <span className="inline-flex items-center gap-1.5 rounded-xl border border-border/60 bg-background/60 px-3 py-1.5 text-sm font-medium text-muted-foreground">
+                  <TrendingUp className="h-4 w-4 text-primary" /> #{rank.toLocaleString()} global
                 </span>
               )}
+            </div>
+
+            <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-muted-foreground">
               {chapters != null && (
-                <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                <span className="inline-flex items-center gap-1.5">
                   <BookOpenText className="h-4 w-4" /> {chapters} chapters
                 </span>
               )}
               {volumes != null && (
-                <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                <span className="inline-flex items-center gap-1.5">
                   <Layers className="h-4 w-4" /> {volumes} volumes
                 </span>
               )}
               {episodes != null && (
-                <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                <span className="inline-flex items-center gap-1.5">
                   <Users className="h-4 w-4" /> {episodes} episodes
                 </span>
               )}
               {(startDate || endDate) && (
-                <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                <span className="inline-flex items-center gap-1.5">
                   <CalendarDays className="h-4 w-4" />
                   {formatDate(startDate)}
                   {endDate ? ` – ${formatDate(endDate)}` : ""}
@@ -184,9 +191,13 @@ export function TitleHero({
             </div>
 
             {genres.length > 0 && (
-              <div className="mt-3 flex flex-wrap gap-1.5">
+              <div className="mt-4 flex flex-wrap gap-1.5">
                 {genres.slice(0, 8).map((genre) => (
-                  <Badge key={genre} variant="outline">
+                  <Badge
+                    key={genre}
+                    variant="outline"
+                    className="transition-colors hover:border-primary/40 hover:text-foreground"
+                  >
                     {genre}
                   </Badge>
                 ))}
@@ -194,7 +205,7 @@ export function TitleHero({
             )}
 
             {links.length > 0 && (
-              <div className="mt-4 flex flex-wrap gap-2">
+              <div className="mt-5 flex flex-wrap gap-2">
                 {links.map((link) => (
                   <ProviderLink key={`${link.label}:${link.href}`} href={link.href} label={link.label} />
                 ))}
@@ -224,7 +235,7 @@ export function ProviderLink({
       target="_blank"
       rel="noreferrer"
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-md border border-input px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
+        "inline-flex items-center gap-1.5 rounded-xl border border-border/70 bg-background/50 px-2.5 py-1.5 text-xs font-medium text-muted-foreground backdrop-blur transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:text-foreground",
         className,
       )}
     >

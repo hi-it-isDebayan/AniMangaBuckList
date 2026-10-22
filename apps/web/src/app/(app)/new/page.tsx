@@ -10,6 +10,8 @@ import { discoverItemToCatalogItem } from "@/lib/catalog";
 import { EmptyState } from "@/components/empty-state";
 import { Pagination } from "@/components/pagination";
 import { SegmentedTabs } from "@/components/segmented-tabs";
+import { PageHeader } from "@/components/page-header";
+import { RevealStagger } from "@/components/reveal";
 
 export const metadata: Metadata = { title: "New" };
 export const dynamic = "force-dynamic";
@@ -44,20 +46,21 @@ export default async function NewPage({
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-          <Sparkles className="h-6 w-6 text-primary" /> New releases
-        </h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">
-          Recently added titles that haven&apos;t reached {PROMOTE_CHAPTERS}+ chapters yet.
-          Once they do, they&apos;re promoted to{" "}
-          <Link href="/discover" className="text-primary hover:underline">
-            Discover
-          </Link>
-          .
-          {result.count > 0 ? ` · ${result.count.toLocaleString()} titles` : ""}
-        </p>
-      </div>
+      <PageHeader
+        icon={Sparkles}
+        title="New releases"
+        subtitle={
+          <>
+            Recently added titles that haven&apos;t reached {PROMOTE_CHAPTERS}+ chapters yet.
+            Once they do, they&apos;re promoted to{" "}
+            <Link href="/discover" className="text-primary hover:underline">
+              Discover
+            </Link>
+            .
+            {result.count > 0 ? ` · ${result.count.toLocaleString()} titles` : ""}
+          </>
+        }
+      />
 
       <SegmentedTabs
         items={DISCOVER_FORMATS.map((f) => ({
@@ -76,12 +79,12 @@ export default async function NewPage({
           description="Nothing new in this format right now. Check back after the next catalogue refresh."
         />
       ) : (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+        <RevealStagger className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
           {result.items.map((item) => {
             const catalogItem = discoverItemToCatalogItem(item, { source: "local" });
             return <CatalogCard key={catalogItem.key} item={catalogItem} />;
           })}
-        </div>
+        </RevealStagger>
       )}
 
       <Pagination

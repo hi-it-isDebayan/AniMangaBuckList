@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { and, arrayContains, count, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
-import { BookMarked } from "lucide-react";
+import { BookMarked, LibraryBig } from "lucide-react";
 import type { LibraryStatus, MediaType } from "@ambl/types";
 import {
   titles,
@@ -25,6 +25,7 @@ import { Pagination } from "@/components/pagination";
 import { SegmentedTabs } from "@/components/segmented-tabs";
 import { LIBRARY_STATUSES, GENRE_CHIP_COLORS, libraryStatusLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { PageHeader } from "@/components/page-header";
 import { SearchProviderWrapper } from "@/components/search-provider-wrapper";
 
 export const metadata: Metadata = { title: "Library" };
@@ -224,19 +225,20 @@ export default async function LibraryPage({
   return (
     <SearchProviderWrapper defaultType="MANGA" defaultSource="all">
       <div className="space-y-5">
-        <div className="flex items-end justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Library</h1>
-            <p className="mt-0.5 text-sm text-muted-foreground">
-              {total} {total === 1 ? "title" : "titles"} tracked
+        <PageHeader
+          icon={LibraryBig}
+          title="Library"
+          subtitle={`${total} ${total === 1 ? "title" : "titles"} tracked`}
+          actions={
+            <p className="hidden shrink-0 items-center gap-1 text-xs text-muted-foreground sm:flex">
+              Press
+              <kbd className="rounded-md border border-border/70 bg-muted px-1.5 py-0.5 font-medium">
+                /
+              </kbd>
+              to search &amp; add
             </p>
-          </div>
-          <p className="hidden shrink-0 items-center gap-1 text-xs text-muted-foreground sm:flex">
-            Press
-            <kbd className="rounded-md border bg-muted px-1.5 py-0.5 font-medium">/</kbd>
-            to search & add
-          </p>
-        </div>
+          }
+        />
 
         {mangabakaTotal > 0 && (
           <ImportProviderButton
