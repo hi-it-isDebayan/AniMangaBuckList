@@ -105,27 +105,41 @@ async function pruneCatalogue(
   sqlClient: ReturnType<typeof postgres>,
   options: {
     limit: number;
-    protect: RefSets;
     dryRun: boolean;
     fromYear: number;
-    toYear: number;
   },
 ): Promise<{ before: number; deleted: number; after: number }> {
-  const mbIds = [...options.protect.mb];
-  const malIds = [...options.protect.mal];
-  const aniIds = [...options.protect.ani];
-  const mbClause =
-    mbIds.length === 0
-      ? sqlClient`true`
-      : sqlClient`id <> all(${sqlClient.array(mbIds)}::int[])`;
-  const malClause =
-    malIds.length === 0
-      ? sqlClient`true`
-      : sqlClient`(mal_id is null or mal_id <> all(${sqlClient.array(malIds)}::int[]))`;
-  const aniClause =
-    aniIds.length === 0
-      ? sqlClient`true`
-      : sqlClient`(anilist_id is null or anilist_id <> all(${sqlClient.array(aniIds)}::int[]))`;
+  // Protection predicates mirror scripts/prune-mangabaka-catalogue-preview.sql
+  // exactly. Anything the app links to, imports, or that a user has commented
+  // on is preserved regardless of the year window or the row cap.
+  const protectedClause = sqlClient`
+    not exists (
+      select 1 from titles t
+      where mb.mal_id is not null and t.mal_id = mb.mal_id
+    )
+    and not exists (
+      select 1 from provider_entries pe
+      where lower(pe.provider) = 'mangabaka' and pe.external_id = mb.id::text
+    )
+    and not exists (
+      select 1 from provider_entries pe
+      where mb.mal_id is not null and pe.mal_id = mb.mal_id
+    )
+    and not exists (
+      select 1 from provider_entries pe
+      where mb.anilist_id is not null and pe.anilist_id = mb.anilist_id
+    )
+    and not exists (
+      select 1 from title_external_ids x
+      where (x.provider = 'mangabaka' and x.external_id = mb.id::text)
+        or (x.provider like 'mal%' and mb.mal_id is not null and x.external_id = mb.mal_id::text)
+        or (x.provider = 'anilist' and mb.anilist_id is not null and x.external_id = mb.anilist_id::text)
+    )
+    and not exists (
+      select 1 from title_comments tc
+      where tc.series_id = mb.id
+    )
+  `;
 
   let rangeDeleted = 0;
   if (!options.dryRun) {
@@ -133,20 +147,17 @@ async function pruneCatalogue(
     // that are referenced by a library. The year fallback mirrors the ingest
     // policy (year column, else publication start date).
     const rangeRows = (await sqlClient`
-      delete from mangabaka_series
+      delete from mangabaka_series as mb
       where
-        COALESCE(year, EXTRACT(YEAR FROM start_date)::int) is not null
-        and (
-          COALESCE(year, EXTRACT(YEAR FROM start_date)::int) < ${options.fromYear}
-          or COALESCE(year, EXTRACT(YEAR FROM start_date)::int) > ${options.toYear}
-        )
-        and ${mbClause} and ${malClause} and ${aniClause}
+        COALESCE(mb.year, EXTRACT(YEAR FROM mb.start_date)::int) is not null
+        and COALESCE(mb.year, EXTRACT(YEAR FROM mb.start_date)::int) < ${options.fromYear}
+        and ${protectedClause}
       returning id
     `) as unknown as { id: number }[];
     rangeDeleted = rangeRows.length;
     if (rangeDeleted > 0) {
       console.log(
-        `catalogue: removed ${rangeDeleted} rows outside ${options.fromYear}-${options.toYear}`,
+        `catalogue: removed ${rangeDeleted} rows published before ${options.fromYear}`,
       );
     }
   }
@@ -168,13 +179,13 @@ async function pruneCatalogue(
   const deletedRows = (await sqlClient`
     delete from mangabaka_series
     where id in (
-      select id from mangabaka_series
-      where ${mbClause} and ${malClause} and ${aniClause}
+      select mb.id from mangabaka_series as mb
+      where ${protectedClause}
       order by
-        (case when coalesce(total_chapters, 0) >= 70 then 1 else 0 end) asc,
-        coalesce(popularity, 2147483647) desc,
-        coalesce(year, 1900) asc,
-        id asc
+        (case when coalesce(mb.total_chapters, 0) >= 70 then 1 else 0 end) asc,
+        coalesce(mb.popularity, 2147483647) desc,
+        coalesce(mb.year, 1900) asc,
+        mb.id asc
       limit ${excess}
     )
     returning id
@@ -357,10 +368,8 @@ async function main() {
   if (prune) {
     const result = await pruneCatalogue(sqlClient, {
       limit: pruneLimit,
-      protect: refs,
       dryRun,
       fromYear: cutoffYear,
-      toYear: new Date().getFullYear(),
     });
     console.log(
       `catalogue: before=${result.before} pruned=${result.deleted} after=${result.after}`,
