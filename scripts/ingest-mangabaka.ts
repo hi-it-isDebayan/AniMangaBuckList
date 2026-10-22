@@ -283,7 +283,11 @@ async function main() {
       }
     }
   } catch (e) {
-    console.warn("ref load skipped:", (e as Error).message);
+    // Fail closed: without reference IDs we cannot safely preserve older titles
+    // that are already represented in the app or a user's imported list.
+    console.error("Unable to load title references; refusing to ingest without retention safeguards.", e);
+    await sqlClient.end();
+    throw e;
   }
   console.log(`refs: mb=${refs.mb.size} mal=${refs.mal.size} ani=${refs.ani.size}`);
 
@@ -341,6 +345,8 @@ async function main() {
         }
         scanned++;
         if (shouldKeep(rec, refs, now, keepOptions)) {
+          // Enforce --limit exactly, including when it is not a multiple of BATCH_SIZE.
+          if (limit && inserted + rows.length >= limit) break;
           rows.push(toMangabakaSeriesRow(rec));
           kept++;
           if (rows.length >= BATCH_SIZE) {
