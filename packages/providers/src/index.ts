@@ -6,6 +6,7 @@ import { MangaBakaProvider } from "./mangabaka";
 
 export type { MetadataProvider, SearchOptions } from "./types";
 export * from "./types";
+export * from "./counts";
 export { JikanProvider } from "./jikan";
 export { MALProvider, malAuthHeaders } from "./mal";
 export { AniListProvider } from "./anilist";

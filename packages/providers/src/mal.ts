@@ -5,6 +5,7 @@ import type {
   SearchResultItem,
 } from "@ambl/types";
 import type { MetadataProvider, SearchOptions } from "./types";
+import { normalizeCount } from "./counts";
 
 const BASE = "https://api.myanimelist.net/v2";
 
@@ -137,9 +138,9 @@ function toItem(node: MalNode, isAnime: boolean): SearchResultItem {
     mediaType: isAnime ? "ANIME" : mapMediaType(node.media_type) ?? "MANGA",
     synopsis: node.synopsis ?? null,
     status: mapStatus(node.status),
-    episodeCount: isAnime ? node.num_episodes ?? null : null,
-    chapterCount: isAnime ? null : node.num_chapters ?? null,
-    volumeCount: isAnime ? null : node.num_volumes ?? null,
+    episodeCount: isAnime ? normalizeCount(node.num_episodes) : null,
+    chapterCount: isAnime ? null : normalizeCount(node.num_chapters),
+    volumeCount: isAnime ? null : normalizeCount(node.num_volumes),
     startDate: node.start_date ?? null,
     endDate: node.end_date ?? null,
     season: season ? season.toUpperCase() : null,

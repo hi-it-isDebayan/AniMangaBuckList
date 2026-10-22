@@ -188,6 +188,17 @@ export function relationTypeLabel(type: string): string {
     .join(" ");
 }
 
+/**
+ * Render a chapter/episode/volume count. Unknown values (null, undefined or a
+ * non-positive number) render as an em dash, so a missing total is never shown
+ * as "0".
+ */
+export function formatCount(value: number | null | undefined): string {
+  return typeof value === "number" && Number.isFinite(value) && value > 0
+    ? value.toLocaleString()
+    : "—";
+}
+
 export function formatDate(value: string | Date | null | undefined): string {
   if (!value) return "—";
   const d = typeof value === "string" ? new Date(value) : value;
