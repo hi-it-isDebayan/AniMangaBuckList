@@ -12,7 +12,10 @@ export function getDb() {
     throw new Error("DATABASE_URL is not set. Copy .env.example to apps/web/.env and configure it first.");
   }
   if (!client) {
-    client = postgres(connectionString, { max: 5, prepare: false });
+    // Serverless platforms (Vercel) freeze and clone function instances, so keep
+    // one connection per instance and let the Neon pooler multiplex the rest.
+    const max = process.env.VERCEL ? 1 : 5;
+    client = postgres(connectionString, { max, prepare: false });
   }
   _db = drizzle(client, { schema });
   return _db;
