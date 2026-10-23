@@ -106,17 +106,26 @@ Open http://localhost:3000, sign up, then search a title from MyAnimeList and ad
 | `npm run db:generate` | Generate Drizzle SQL migrations    |
 | `npm run db:migrate`  | Apply migrations to Neon           |
 
-## Deploying to Render
+## Deploying
+
+Production runs on **Vercel** (Hobby plan), linked to this repository: every push to `master` deploys automatically.
+
+- **Framework preset:** Next.js
+- **Root directory:** `apps/web`
+- **Install / build:** defaults (Vercel detects the npm workspace and builds with the root lockfile)
+- **Health check:** `/api/health`, which runs `select 1` against the database
+
+Set the environment variables below, then add the custom domain and point its CNAME at Vercel.
+
+Point `DATABASE_URL` at the **pooled** Neon endpoint (the host contains `-pooler`). Vercel clones and freezes function instances, so `packages/database` opens a single connection per instance when `VERCEL` is set and leaves the multiplexing to that pooler. Self-hosted runs and scripts keep the normal pool.
+
+### Render (alternative)
 
 Use the included [`render.yaml`](./render.yaml) blueprint, or manually create a **Web Service** with:
 
 - **Build:** `npm ci && npm run build`
 - **Start:** `npm run start`
 - **Health check:** `/api/health`
-
-Set `DATABASE_URL` to your Neon database and point the health check at `/api/health`.
-
-### Free-plan budget
 
 Render's free plan provides **750 instance hours per calendar month per workspace**, shared by every free web service in that workspace. If the budget runs out, Render suspends **all** of them until the start of the next month.
 
