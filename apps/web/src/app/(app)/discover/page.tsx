@@ -4,7 +4,6 @@ import { requireUser } from "@/lib/auth";
 import {
   DISCOVER_FORMATS,
   DISCOVER_SORTS,
-  DISCOVER_YEARS,
   type DiscoverFormat,
   type DiscoverSort,
 } from "@/lib/mangabaka";
@@ -39,31 +38,22 @@ export default async function DiscoverPage({
     ? (rawSort as DiscoverSort)
     : "trending";
 
-  const rawYear = String(sp.year ?? "all").toLowerCase();
-  const year =
-    rawYear !== "all" && (DISCOVER_YEARS as readonly number[]).includes(Number(rawYear))
-      ? Number(rawYear)
-      : null;
-
   const rawPage = Number(sp.page ?? 1);
   const page = Number.isFinite(rawPage) && rawPage >= 1 ? Math.floor(rawPage) : 1;
 
-  const result = await findDiscover({ format, year, sort, page });
+  const result = await findDiscover({ format, year: null, sort, page });
 
   const buildHref = (overrides: {
     format?: DiscoverFormat;
     sort?: DiscoverSort;
-    year?: number | null;
     page?: number;
   }) => {
     const f = overrides.format ?? format;
     const s = overrides.sort ?? sort;
-    const y = overrides.year === undefined ? year : overrides.year;
     const p = overrides.page ?? 1;
     const params = new URLSearchParams();
     if (f !== "ALL") params.set("format", f);
     if (s !== "trending") params.set("sort", s);
-    if (y != null) params.set("year", String(y));
     if (p > 1) params.set("page", String(p));
     const qs = params.toString();
     return qs ? `/discover?${qs}` : "/discover";
@@ -79,7 +69,6 @@ export default async function DiscoverPage({
             <>
               What&apos;s {DISCOVER_SORTS.find((s) => s.key === sort)?.label.toLowerCase()} on
               MangaBaka
-              {year ? ` from ${year}` : ""}
               {result.count > 0 ? ` · ${result.count.toLocaleString()} titles` : ""}
             </>
           }
@@ -105,17 +94,6 @@ export default async function DiscoverPage({
               }))}
               active={sort}
             />
-            <SegmentedTabs
-              items={[
-                { key: "all", label: "All years", href: buildHref({ year: null, page: 1 }) },
-                ...DISCOVER_YEARS.map((y) => ({
-                  key: String(y),
-                  label: String(y),
-                  href: buildHref({ year: y, page: 1 }),
-                })),
-              ]}
-              active={year == null ? "all" : String(year)}
-            />
           </div>
         </div>
 
@@ -128,7 +106,7 @@ export default async function DiscoverPage({
           <EmptyState
             icon={<Compass className="h-8 w-8" />}
             title="Nothing to show"
-            description="No titles matched this combination yet. Try another format, year, or sort."
+            description="No titles matched this combination yet. Try another format or sort."
           />
         ) : (
           <RevealStagger className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
